@@ -12,7 +12,7 @@ export function LogPanel() {
     setLogs(data)
   }
 
-  // 定时刷新
+  // Auto refresh
   useEffect(() => {
     loadLogs()
     const interval = setInterval(loadLogs, 2000)
@@ -21,7 +21,7 @@ export function LogPanel() {
 
   const formatTime = (timestamp: number) => {
     const date = new Date(timestamp)
-    return date.toLocaleTimeString('zh-CN', { 
+    return date.toLocaleTimeString('en-US', { 
       hour12: false,
       hour: '2-digit',
       minute: '2-digit',
@@ -60,17 +60,17 @@ export function LogPanel() {
     <div className="log-panel">
       <div className="card">
         <div className="header">
-          <h2>📋 运行日志</h2>
+          <h2>📋 Logs</h2>
           <div className="header-actions">
             <button onClick={loadLogs} className="btn btn-secondary">
-              刷新
+              Refresh
             </button>
           </div>
         </div>
 
         <div className="logs-container">
           {logs.length === 0 ? (
-            <div className="empty">暂无日志</div>
+            <div className="empty">No logs yet</div>
           ) : (
             <div className="logs-list">
               {logs.map((log) => {
@@ -88,28 +88,28 @@ export function LogPanel() {
                       <div className="log-metadata">
                         {metadata.price && (
                           <span className="meta-tag price">
-                            💰 价格: {metadata.price}
+                            💰 Price: {metadata.price}
                           </span>
                         )}
                         {metadata.action && (
                           <span className={`meta-tag action ${metadata.action}`}>
-                            {metadata.action === 'SELL' ? '📉 卖出' : 
-                             metadata.action === 'BUY' ? '📈 买入' : '➡️ ' + metadata.action}
+                            {metadata.action === 'SELL' ? '📉 Sell' : 
+                             metadata.action === 'BUY' ? '📈 Buy' : '➡️ ' + metadata.action}
                           </span>
                         )}
                         {metadata.amountIn && (
                           <span className="meta-tag">
-                            输入: {metadata.amountIn}
+                            In: {metadata.amountIn}
                           </span>
                         )}
                         {metadata.estimatedOut && (
                           <span className="meta-tag">
-                            预估输出: {metadata.estimatedOut}
+                            Est: {metadata.estimatedOut}
                           </span>
                         )}
                         {metadata.band !== undefined && (
                           <span className="meta-tag">
-                            档位: {metadata.band}
+                            Band: {metadata.band}
                           </span>
                         )}
                         {metadata.txDigest && (
@@ -132,10 +132,13 @@ export function LogPanel() {
           margin-top: 24px;
         }
         .card {
-          background: white;
-          border-radius: 12px;
+          background: rgba(23, 23, 30, 0.8);
+          border: 1px solid rgba(99, 102, 241, 0.15);
+          border-radius: 16px;
           padding: 24px;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+          box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+          backdrop-filter: blur(10px);
+          color: #e5e7eb;
         }
         .header {
           display: flex;
@@ -151,59 +154,59 @@ export function LogPanel() {
         h2 {
           font-size: 20px;
           font-weight: 600;
+          color: #e5e7eb;
         }
         .btn {
           padding: 8px 16px;
-          border-radius: 6px;
+          border-radius: 8px;
           font-size: 13px;
           font-weight: 500;
           border: none;
           cursor: pointer;
+          transition: all 0.2s;
         }
         .btn-secondary {
-          background: #f3f4f6;
-          color: #374151;
+          background: rgba(99, 102, 241, 0.1);
+          color: #a5b4fc;
+          border: 1px solid rgba(99, 102, 241, 0.2);
         }
         .btn:hover {
-          opacity: 0.8;
+          background: rgba(99, 102, 241, 0.2);
         }
         .logs-container {
           max-height: 400px;
           overflow-y: auto;
-          border: 1px solid #e5e7eb;
-          border-radius: 8px;
-          background: #fafafa;
+          border: 1px solid rgba(99, 102, 241, 0.15);
+          border-radius: 12px;
+          background: rgba(17, 17, 24, 0.6);
         }
         .empty {
           text-align: center;
           padding: 40px;
-          color: #666;
+          color: #6b7280;
         }
         .logs-list {
           padding: 8px;
         }
         .log-item {
           padding: 10px 12px;
-          border-radius: 6px;
+          border-radius: 8px;
           margin-bottom: 6px;
           font-size: 13px;
-          background: white;
+          background: rgba(23, 23, 30, 0.8);
           border-left: 3px solid transparent;
         }
         .log-item:last-child {
           margin-bottom: 0;
         }
         .level-info {
-          border-left-color: #3b82f6;
-          background: #eff6ff;
+          border-left-color: #6366f1;
         }
         .level-warn {
           border-left-color: #f59e0b;
-          background: #fffbeb;
         }
         .level-error {
           border-left-color: #ef4444;
-          background: #fef2f2;
         }
         .log-header {
           display: flex;
@@ -212,26 +215,27 @@ export function LogPanel() {
           margin-bottom: 4px;
         }
         .log-time {
-          font-family: monospace;
-          font-size: 12px;
+          font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+          font-size: 11px;
           color: #6b7280;
         }
         .log-level {
-          font-size: 11px;
+          font-size: 10px;
           font-weight: 600;
           text-transform: uppercase;
+          letter-spacing: 0.5px;
         }
         .level-info .log-level {
-          color: #2563eb;
+          color: #818cf8;
         }
         .level-warn .log-level {
-          color: #d97706;
+          color: #fbbf24;
         }
         .level-error .log-level {
-          color: #dc2626;
+          color: #f87171;
         }
         .log-message {
-          color: #1f2937;
+          color: #e5e7eb;
           line-height: 1.5;
           word-break: break-word;
         }
@@ -246,34 +250,34 @@ export function LogPanel() {
           align-items: center;
           padding: 2px 8px;
           border-radius: 4px;
-          font-size: 11px;
+          font-size: 10px;
           font-weight: 500;
-          background: #e5e7eb;
-          color: #374151;
+          background: rgba(99, 102, 241, 0.1);
+          color: #a5b4fc;
         }
         .meta-tag.price {
-          background: #dbeafe;
-          color: #1e40af;
+          background: rgba(59, 130, 246, 0.1);
+          color: #60a5fa;
         }
         .meta-tag.action {
-          background: #e0e7ff;
-          color: #3730a3;
+          background: rgba(99, 102, 241, 0.1);
+          color: #a5b4fc;
         }
         .meta-tag.action.SELL {
-          background: #fef3c7;
-          color: #92400e;
+          background: rgba(251, 191, 36, 0.1);
+          color: #fbbf24;
         }
         .meta-tag.action.BUY {
-          background: #d1fae5;
-          color: #065f46;
+          background: rgba(34, 197, 94, 0.1);
+          color: #4ade80;
         }
         .meta-tag.tx {
-          background: #f3e8ff;
-          color: #6b21a8;
+          background: rgba(168, 85, 247, 0.1);
+          color: #c084fc;
           cursor: pointer;
         }
         .meta-tag.tx:hover {
-          background: #e9d5ff;
+          background: rgba(168, 85, 247, 0.2);
         }
       `}</style>
     </div>

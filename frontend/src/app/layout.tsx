@@ -2,8 +2,8 @@ import type { Metadata } from "next"
 import "./globals.css"
 
 export const metadata: Metadata = {
-  title: "GridVault - 网格交易机器人",
-  description: "Sui 网格交易机器人管理面板",
+  title: "GridVault - Intelligent Grid Trading on Sui",
+  description: "Automated grid trading bot for Sui blockchain - Secure, Efficient, Decentralized",
 }
 
 export default function RootLayout({
@@ -12,7 +12,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="zh-CN">
+    <html lang="en">
       <body>
         {children}
       </body>

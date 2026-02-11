@@ -64,8 +64,9 @@ export function GridStatus() {
   const lines = config ? computeGridLines(config.lowerPrice, config.upperPrice, config.levels) : []
   const currentPrice = price ?? status?.lastPrice ?? null
   const nearest = currentPrice !== null ? getNearestLines(currentPrice, lines) : null
-  const fallbackNearest = !nearest && status?.gridState.lastBand !== null && lines.length > 1
-    ? [lines[Math.max(status.gridState.lastBand, 0)], lines[Math.min(status.gridState.lastBand + 1, lines.length - 1)]] as [number, number]
+  const lastBand = status?.gridState.lastBand
+  const fallbackNearest = !nearest && lastBand !== null && lastBand !== undefined && lines.length > 1
+    ? [lines[Math.max(lastBand, 0)], lines[Math.min(lastBand + 1, lines.length - 1)]] as [number, number]
     : null
 
   return (
@@ -123,46 +124,51 @@ export function GridStatus() {
           margin-bottom: 24px;
         }
         .card {
-          background: white;
-          border-radius: 12px;
+          background: rgba(23, 23, 30, 0.8);
+          border: 1px solid rgba(99, 102, 241, 0.15);
+          border-radius: 16px;
           padding: 20px 24px;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+          box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+          backdrop-filter: blur(10px);
+          color: #e5e7eb;
         }
         h2 {
           font-size: 18px;
           font-weight: 600;
           margin-bottom: 16px;
+          color: #e5e7eb;
         }
         .row {
           display: flex;
           justify-content: space-between;
           align-items: center;
           padding: 10px 0;
-          border-bottom: 1px solid #eee;
+          border-bottom: 1px solid rgba(99, 102, 241, 0.1);
         }
         .row:last-child {
           border-bottom: none;
         }
         .label {
-          color: #666;
+          color: #6b7280;
           font-size: 13px;
         }
         .value {
-          font-family: monospace;
+          font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
           font-weight: 600;
-          color: #111827;
+          color: #e5e7eb;
         }
         .value.warn {
-          color: #b45309;
+          color: #fbbf24;
         }
         .value.ok {
-          color: #047857;
+          color: #4ade80;
         }
         .hint {
           margin-top: 12px;
           font-size: 12px;
-          color: #92400e;
-          background: #fef3c7;
+          color: #fbbf24;
+          background: rgba(251, 191, 36, 0.1);
+          border: 1px solid rgba(251, 191, 36, 0.2);
           padding: 8px 12px;
           border-radius: 8px;
         }

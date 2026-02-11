@@ -23,25 +23,25 @@ export function TradeHistory() {
     <div className="trade-history">
       <div className="card">
         <div className="header">
-          <h2>📜 交易历史</h2>
+          <h2>📜 Trade History</h2>
           <button onClick={loadHistory} className="btn btn-secondary">
-            刷新
+            Refresh
           </button>
         </div>
 
         {trades.length === 0 ? (
-          <div className="empty">暂无交易记录</div>
+          <div className="empty">No trade records yet</div>
         ) : (
           <div className="table-container">
             <table>
               <thead>
                 <tr>
-                  <th>时间</th>
-                  <th>方向</th>
-                  <th>输入</th>
-                  <th>输出</th>
-                  <th>价格</th>
-                  <th>状态</th>
+                  <th>Time</th>
+                  <th>Side</th>
+                  <th>Input</th>
+                  <th>Output</th>
+                  <th>Price</th>
+                  <th>Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -50,7 +50,7 @@ export function TradeHistory() {
                     <td>{formatTimestamp(trade.timestamp)}</td>
                     <td>
                       <span className={`side ${trade.side}`}>
-                        {trade.side === "A2B" ? "卖出 SUI" : "买入 SUI"}
+                        {trade.side === "A2B" ? "Sell SUI" : "Buy SUI"}
                       </span>
                     </td>
                     <td>{formatAmount(trade.amountIn, trade.side === "A2B" ? 9 : 6)}</td>
@@ -58,7 +58,7 @@ export function TradeHistory() {
                     <td>{trade.price.toFixed(6)}</td>
                     <td>
                       <span className={`status ${trade.status}`}>
-                        {trade.status === "success" ? "✓ 成功" : "✗ 失败"}
+                        {trade.status === "success" ? "✓ Success" : "✗ Failed"}
                       </span>
                     </td>
                   </tr>
@@ -74,10 +74,13 @@ export function TradeHistory() {
           margin-top: 24px;
         }
         .card {
-          background: white;
-          border-radius: 12px;
+          background: rgba(23, 23, 30, 0.8);
+          border: 1px solid rgba(99, 102, 241, 0.15);
+          border-radius: 16px;
           padding: 24px;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+          box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+          backdrop-filter: blur(10px);
+          color: #e5e7eb;
         }
         .header {
           display: flex;
@@ -88,74 +91,90 @@ export function TradeHistory() {
         h2 {
           font-size: 20px;
           font-weight: 600;
+          color: #e5e7eb;
         }
         .btn {
           padding: 8px 16px;
-          border-radius: 6px;
+          border-radius: 8px;
           font-size: 13px;
           font-weight: 500;
+          border: none;
+          cursor: pointer;
+          transition: all 0.2s;
         }
         .btn-secondary {
-          background: #f3f4f6;
-          color: #374151;
+          background: rgba(99, 102, 241, 0.1);
+          color: #a5b4fc;
+          border: 1px solid rgba(99, 102, 241, 0.2);
         }
         .btn:hover {
-          opacity: 0.8;
+          background: rgba(99, 102, 241, 0.2);
         }
         .empty {
           text-align: center;
           padding: 40px;
-          color: #666;
+          color: #6b7280;
         }
         .table-container {
           overflow-x: auto;
+          border-radius: 8px;
+          border: 1px solid rgba(99, 102, 241, 0.1);
         }
         table {
           width: 100%;
           border-collapse: collapse;
-          font-size: 14px;
+          font-size: 13px;
         }
         th, td {
           padding: 12px;
           text-align: left;
-          border-bottom: 1px solid #eee;
+          border-bottom: 1px solid rgba(99, 102, 241, 0.1);
         }
         th {
           font-weight: 600;
-          color: #666;
-          font-size: 12px;
+          color: #9ca3af;
+          font-size: 11px;
           text-transform: uppercase;
+          letter-spacing: 0.5px;
+          background: rgba(17, 17, 24, 0.6);
         }
         tr:hover {
-          background: #f9fafb;
+          background: rgba(99, 102, 241, 0.05);
+        }
+        tbody tr:last-child td {
+          border-bottom: none;
         }
         .side {
-          padding: 4px 8px;
-          border-radius: 4px;
-          font-size: 12px;
-          font-weight: 500;
+          padding: 4px 10px;
+          border-radius: 9999px;
+          font-size: 11px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
         }
         .side.A2B {
-          background: #fef3c7;
-          color: #92400e;
+          background: rgba(251, 191, 36, 0.15);
+          color: #fbbf24;
         }
         .side.B2A {
-          background: #dbeafe;
-          color: #1e40af;
+          background: rgba(99, 102, 241, 0.15);
+          color: #a5b4fc;
         }
         .status {
-          padding: 4px 8px;
-          border-radius: 4px;
-          font-size: 12px;
-          font-weight: 500;
+          padding: 4px 10px;
+          border-radius: 9999px;
+          font-size: 11px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
         }
         .status.success {
-          background: #dcfce7;
-          color: #166534;
+          background: rgba(34, 197, 94, 0.15);
+          color: #4ade80;
         }
         .status.failure {
-          background: #fee2e2;
-          color: #991b1b;
+          background: rgba(239, 68, 68, 0.15);
+          color: #f87171;
         }
         tr.failure {
           opacity: 0.7;

@@ -11,7 +11,7 @@ export function BotControl() {
   const [editingConfig, setEditingConfig] = useState<Partial<GridConfig>>({})
   const [showEdit, setShowEdit] = useState(false)
 
-  // 刷新状态
+  // Refresh status
   const refresh = useCallback(async () => {
     const [s, c] = await Promise.all([api.fetchStatus(), api.fetchConfig()])
     if (s) setStatus(s)
@@ -23,7 +23,7 @@ export function BotControl() {
     }
   }, [api, showEdit])
 
-  // 定时刷新
+  // Auto refresh
   useEffect(() => {
     refresh()
     const interval = setInterval(refresh, 3000)
@@ -81,12 +81,12 @@ export function BotControl() {
 
   return (
     <div className="bot-control">
-      {/* 状态卡片 */}
+      {/* Status Card */}
       <div className="card status-card">
         <div className="status-header">
-          <h2>🤖 Bot 状态</h2>
+          <h2>🤖 Bot Status</h2>
           <span className={`badge ${status?.running ? "running" : "stopped"}`}>
-            {status?.running ? "运行中" : "已停止"}
+            {status?.running ? "Running" : "Stopped"}
           </span>
         </div>
 
@@ -97,23 +97,23 @@ export function BotControl() {
               <span>{status.vaultId ? status.vaultId.slice(0, 16) + "..." : "-"}</span>
             </div>
             <div className="status-item">
-              <label>SUI 余额</label>
+              <label>SUI Balance</label>
               <span>{formatAmount(status.balances.a)} SUI</span>
             </div>
             <div className="status-item">
-              <label>USDC 余额</label>
+              <label>USDC Balance</label>
               <span>{formatAmount(status.balances.b, 6)} USDC</span>
             </div>
             <div className="status-item">
-              <label>当前档位</label>
-              <span>{status.gridState.lastBand ?? "未初始化"}</span>
+              <label>Current Band</label>
+              <span>{status.gridState.lastBand ?? "Not Init"}</span>
             </div>
             <div className="status-item">
-              <label>交易中</label>
-              <span>{status.gridState.inFlight ? "是" : "否"}</span>
+              <label>In Flight</label>
+              <span>{status.gridState.inFlight ? "Yes" : "No"}</span>
             </div>
             <div className="status-item">
-              <label>最后 tick</label>
+              <label>Last Tick</label>
               <span>{status.lastTick ? formatTimestamp(status.lastTick) : "-"}</span>
             </div>
           </div>
@@ -126,7 +126,7 @@ export function BotControl() {
               disabled={api.loading}
               className="btn btn-danger"
             >
-              ⏹ 停止
+              ⏹ Stop
             </button>
           ) : (
             <button 
@@ -134,14 +134,14 @@ export function BotControl() {
               disabled={api.loading}
               className="btn btn-success"
             >
-              ▶ 启动
+              ▶ Start
             </button>
           )}
         </div>
 
         {!status && (
           <div className="warning-message">
-            ⚠️ Bot 服务未启动或无法连接，请运行 <code>cd bot && npm run dev</code>
+            ⚠️ Bot service not started or connection failed, run <code>cd bot && npm run dev</code>
           </div>
         )}
 
@@ -152,15 +152,15 @@ export function BotControl() {
         )}
       </div>
 
-      {/* 配置卡片 */}
+      {/* Config Card */}
       <div className="card config-card">
         <div className="config-header">
-          <h2>⚙️ 网格配置</h2>
+          <h2>⚙️ Grid Config</h2>
           <button 
             onClick={toggleEdit} 
             className="btn btn-secondary"
           >
-            {showEdit ? "取消" : "编辑"}
+            {showEdit ? "Cancel" : "Edit"}
           </button>
         </div>
 
@@ -169,7 +169,7 @@ export function BotControl() {
             {showEdit ? (
               <div className="config-form">
                 <div className="form-row">
-                  <label>下限价格</label>
+                  <label>Lower Price</label>
                   <input
                     type="number"
                     step="0.01"
@@ -178,7 +178,7 @@ export function BotControl() {
                   />
                 </div>
                 <div className="form-row">
-                  <label>上限价格</label>
+                  <label>Upper Price</label>
                   <input
                     type="number"
                     step="0.01"
@@ -187,7 +187,7 @@ export function BotControl() {
                   />
                 </div>
                 <div className="form-row">
-                  <label>网格层数</label>
+                  <label>Grid Levels</label>
                   <input
                     type="number"
                     min="2"
@@ -197,7 +197,7 @@ export function BotControl() {
                   />
                 </div>
                 <div className="form-row">
-                  <label>每格金额</label>
+                  <label>Amount Per Grid</label>
                   <input
                     type="number"
                     value={editingConfig.amountPerGrid ?? config.amountPerGrid}
@@ -205,7 +205,7 @@ export function BotControl() {
                   />
                 </div>
                 <div className="form-row">
-                  <label>滑点 (bps)</label>
+                  <label>Slippage (bps)</label>
                   <input
                     type="number"
                     value={editingConfig.slippageBps ?? config.slippageBps}
@@ -217,32 +217,32 @@ export function BotControl() {
                   disabled={api.loading}
                   className="btn btn-primary"
                 >
-                  {api.loading ? "保存中..." : "保存配置"}
+                  {api.loading ? "Saving..." : "Save Config"}
                 </button>
                 {api.error && <div className="error-text">{api.error}</div>}
               </div>
             ) : (
               <div className="config-display">
                 <div className="config-row">
-                  <span className="config-label">价格区间</span>
+                  <span className="config-label">Price Range</span>
                   <span className="config-value">
                     {formatPrice(config.lowerPrice)} ~ {formatPrice(config.upperPrice)} USDC/SUI
                   </span>
                 </div>
                 <div className="config-row">
-                  <span className="config-label">网格层数</span>
+                  <span className="config-label">Grid Levels</span>
                   <span className="config-value">{config.levels}</span>
                 </div>
                 <div className="config-row">
-                  <span className="config-label">每格金额</span>
+                  <span className="config-label">Amount Per Grid</span>
                   <span className="config-value">{config.amountPerGrid} USDC</span>
                 </div>
                 <div className="config-row">
-                  <span className="config-label">滑点容忍</span>
+                  <span className="config-label">Slippage Tolerance</span>
                   <span className="config-value">{config.slippageBps / 100}%</span>
                 </div>
                 <div className="config-row">
-                  <span className="config-label">交易对</span>
+                  <span className="config-label">Trading Pair</span>
                   <span className="config-value">SUI / USDC</span>
                 </div>
               </div>
@@ -257,10 +257,13 @@ export function BotControl() {
           gap: 24px;
         }
         .card {
-          background: white;
-          border-radius: 12px;
+          background: rgba(23, 23, 30, 0.8);
+          border: 1px solid rgba(99, 102, 241, 0.15);
+          border-radius: 16px;
           padding: 24px;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+          box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+          backdrop-filter: blur(10px);
+          color: #e5e7eb;
         }
         .status-header, .config-header {
           display: flex;
@@ -271,20 +274,25 @@ export function BotControl() {
         h2 {
           font-size: 20px;
           font-weight: 600;
+          color: #e5e7eb;
         }
         .badge {
-          padding: 4px 12px;
-          border-radius: 12px;
+          padding: 6px 14px;
+          border-radius: 9999px;
           font-size: 12px;
-          font-weight: 500;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
         }
         .badge.running {
-          background: #dcfce7;
-          color: #166534;
+          background: rgba(34, 197, 94, 0.15);
+          color: #4ade80;
+          border: 1px solid rgba(34, 197, 94, 0.3);
         }
         .badge.stopped {
-          background: #fee2e2;
-          color: #991b1b;
+          background: rgba(239, 68, 68, 0.15);
+          color: #f87171;
+          border: 1px solid rgba(239, 68, 68, 0.3);
         }
         .status-grid {
           display: grid;
@@ -298,14 +306,16 @@ export function BotControl() {
           gap: 4px;
         }
         .status-item label {
-          font-size: 12px;
-          color: #666;
+          font-size: 11px;
+          color: #6b7280;
           text-transform: uppercase;
+          letter-spacing: 0.5px;
         }
-        .status-item value {
-          font-size: 16px;
+        .status-item span {
+          font-size: 14px;
           font-weight: 500;
-          font-family: monospace;
+          font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+          color: #e5e7eb;
         }
         .actions {
           display: flex;
@@ -317,6 +327,7 @@ export function BotControl() {
           font-size: 14px;
           font-weight: 500;
           transition: all 0.2s;
+          border: none;
         }
         .btn:hover:not(:disabled) {
           opacity: 0.9;
@@ -327,43 +338,49 @@ export function BotControl() {
           cursor: not-allowed;
         }
         .btn-success {
-          background: #22c55e;
+          background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
           color: white;
         }
         .btn-danger {
-          background: #ef4444;
+          background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
           color: white;
         }
         .btn-secondary {
-          background: #f3f4f6;
-          color: #374151;
+          background: rgba(99, 102, 241, 0.1);
+          color: #a5b4fc;
+          border: 1px solid rgba(99, 102, 241, 0.2);
+        }
+        .btn-secondary:hover:not(:disabled) {
+          background: rgba(99, 102, 241, 0.2);
         }
         .btn-primary {
-          background: #3b82f6;
+          background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
           color: white;
           margin-top: 16px;
         }
         .error-message {
           margin-top: 16px;
-          padding: 12px;
-          background: #fee2e2;
-          color: #991b1b;
+          padding: 12px 16px;
+          background: rgba(239, 68, 68, 0.1);
+          border: 1px solid rgba(239, 68, 68, 0.2);
+          color: #f87171;
           border-radius: 8px;
           font-size: 14px;
         }
         .warning-message {
           margin-top: 16px;
-          padding: 12px;
-          background: #fef3c7;
-          color: #92400e;
+          padding: 12px 16px;
+          background: rgba(251, 191, 36, 0.1);
+          border: 1px solid rgba(251, 191, 36, 0.2);
+          color: #fbbf24;
           border-radius: 8px;
           font-size: 14px;
         }
         .warning-message code {
-          background: rgba(0,0,0,0.1);
+          background: rgba(0,0,0,0.3);
           padding: 2px 6px;
           border-radius: 4px;
-          font-family: monospace;
+          font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
         }
         .config-display {
           display: flex;
@@ -374,17 +391,19 @@ export function BotControl() {
           display: flex;
           justify-content: space-between;
           padding: 12px 0;
-          border-bottom: 1px solid #eee;
+          border-bottom: 1px solid rgba(99, 102, 241, 0.1);
         }
         .config-row:last-child {
           border-bottom: none;
         }
         .config-label {
-          color: #666;
+          color: #6b7280;
+          font-size: 14px;
         }
         .config-value {
           font-weight: 500;
-          font-family: monospace;
+          font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+          color: #e5e7eb;
         }
         .config-form {
           display: flex;
@@ -398,17 +417,27 @@ export function BotControl() {
         }
         .form-row label {
           font-size: 12px;
-          color: #666;
+          color: #9ca3af;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
         }
         .form-row input {
           padding: 10px 12px;
-          border: 1px solid #ddd;
+          background: rgba(17, 17, 24, 0.8);
+          border: 1px solid rgba(99, 102, 241, 0.2);
           border-radius: 8px;
           font-size: 14px;
+          color: #e5e7eb;
+          transition: all 0.2s;
+        }
+        .form-row input:focus {
+          outline: none;
+          border-color: rgba(99, 102, 241, 0.5);
+          box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
         }
         .error-text {
           margin-top: 8px;
-          color: #ef4444;
+          color: #f87171;
           font-size: 14px;
         }
       `}</style>

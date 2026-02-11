@@ -3,9 +3,9 @@
 import { useCurrentAccount, useDAppKit } from "@mysten/dapp-kit-react"
 import { Transaction } from "@mysten/sui/transactions"
 import { SuiClient } from "@mysten/sui/client"
-import { useState, useCallback, useMemo } from "react"
+import { useState, useCallback, useMemo, useEffect } from "react"
 import { PACKAGE_ID, COIN_TYPE_SUI, COIN_TYPE_USDC, NETWORK, RPC_URL } from "@/lib/constants"
-import { shortenAddress } from "@/lib/utils"
+import { shortenAddress, formatAmount } from "@/lib/utils"
 
 interface VaultManagerProps {
   onVaultCreated?: (vaultId: string, ownerCapId: string, traderCapId: string) => void
@@ -14,6 +14,8 @@ interface VaultManagerProps {
 export function VaultManager({ onVaultCreated }: VaultManagerProps) {
   const account = useCurrentAccount()
   const dAppKit = useDAppKit()
+
+  type DAppKitTxInput = Parameters<typeof dAppKit.signAndExecuteTransaction>[0]["transaction"]
   
   // 创建独立的 SuiClient
   const suiClient = useMemo(() => {
@@ -30,6 +32,12 @@ export function VaultManager({ onVaultCreated }: VaultManagerProps) {
   const [depositAmount, setDepositAmount] = useState("")
   const [selectedAsset, setSelectedAsset] = useState<"SUI" | "USDC">("SUI")
   const [userVaults, setUserVaults] = useState<Array<{id: string, balanceA: string, balanceB: string}>>([])
+
+  const signAndExecute = async (tx: Transaction) => {
+    return dAppKit.signAndExecuteTransaction({
+      transaction: tx as unknown as DAppKitTxInput,
+    })
+  }
 
   /**
    * 查询用户的 Vault 列表
@@ -81,6 +89,14 @@ export function VaultManager({ onVaultCreated }: VaultManagerProps) {
     }
   }, [account, suiClient])
 
+  // 自动刷新 Vault 列表
+  useEffect(() => {
+    if (!account) return
+    fetchUserVaults()
+    const interval = setInterval(fetchUserVaults, 5000)
+    return () => clearInterval(interval)
+  }, [account, fetchUserVaults])
+
   const createVault = async () => {
     if (!account || !PACKAGE_ID) return
 
@@ -97,7 +113,7 @@ export function VaultManager({ onVaultCreated }: VaultManagerProps) {
       // 转移 OwnerCap 和 TraderCap 给用户
       tx.transferObjects([ownerCap, traderCap], account.address)
 
-      const result = await dAppKit.signAndExecuteTransaction({ transaction: tx })
+      const result = await signAndExecute(tx)
 
       if (result.FailedTransaction) {
         throw new Error(`Transaction failed: ${result.FailedTransaction.status.error?.message}`)
@@ -199,7 +215,7 @@ export function VaultManager({ onVaultCreated }: VaultManagerProps) {
     }
 
     try {
-      const result = await dAppKit.signAndExecuteTransaction({ transaction: tx })
+      const result = await signAndExecute(tx)
       
       if (result.FailedTransaction) {
         throw new Error(`Transaction failed: ${result.FailedTransaction.status.error?.message}`)
@@ -255,7 +271,7 @@ export function VaultManager({ onVaultCreated }: VaultManagerProps) {
     }
 
     try {
-      const result = await dAppKit.signAndExecuteTransaction({ transaction: tx })
+      const result = await signAndExecute(tx)
       
       if (result.FailedTransaction) {
         throw new Error(`Transaction failed: ${result.FailedTransaction.status.error?.message}`)
@@ -289,7 +305,7 @@ export function VaultManager({ onVaultCreated }: VaultManagerProps) {
     })
 
     try {
-      const result = await dAppKit.signAndExecuteTransaction({ transaction: tx })
+      const result = await signAndExecute(tx)
       
       if (result.FailedTransaction) {
         throw new Error(`Transaction failed: ${result.FailedTransaction.status.error?.message}`)
@@ -343,8 +359,8 @@ export function VaultManager({ onVaultCreated }: VaultManagerProps) {
             {userVaults.map((vault) => (
               <div key={vault.id} className="vault-item">
                 <p>ID: {shortenAddress(vault.id)}</p>
-                <p>SUI: {(BigInt(vault.balanceA) / BigInt(1e9)).toString()}</p>
-                <p>USDC: {(BigInt(vault.balanceB) / BigInt(1e6)).toString()}</p>
+                <p>SUI: {formatAmount(vault.balanceA, 9)}</p>
+                <p>USDC: {formatAmount(vault.balanceB, 6)}</p>
               </div>
             ))}
           </div>
@@ -415,24 +431,28 @@ export function VaultManager({ onVaultCreated }: VaultManagerProps) {
           margin-bottom: 24px;
         }
         .card {
-          background: white;
-          border-radius: 12px;
+          background: rgba(23, 23, 30, 0.8);
+          border: 1px solid rgba(99, 102, 241, 0.15);
+          border-radius: 16px;
           padding: 24px;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+          box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+          backdrop-filter: blur(10px);
+          color: #e5e7eb;
         }
         h2 {
           margin-bottom: 16px;
           font-size: 20px;
+          color: #e5e7eb;
         }
         h3 {
           margin: 16px 0 8px;
           font-size: 16px;
-          color: #666;
+          color: #9ca3af;
         }
         .section {
           margin-bottom: 20px;
           padding-bottom: 20px;
-          border-bottom: 1px solid #eee;
+          border-bottom: 1px solid rgba(99, 102, 241, 0.1);
         }
         .section:last-child {
           border-bottom: none;
@@ -441,7 +461,8 @@ export function VaultManager({ onVaultCreated }: VaultManagerProps) {
         }
         .vault-item {
           padding: 12px;
-          background: #f5f5f5;
+          background: rgba(17, 17, 24, 0.6);
+          border: 1px solid rgba(99, 102, 241, 0.1);
           border-radius: 8px;
           margin-bottom: 8px;
           font-size: 13px;
@@ -453,9 +474,20 @@ export function VaultManager({ onVaultCreated }: VaultManagerProps) {
           width: 100%;
           padding: 10px 12px;
           margin-bottom: 12px;
-          border: 1px solid #ddd;
+          background: rgba(17, 17, 24, 0.8);
+          border: 1px solid rgba(99, 102, 241, 0.2);
           border-radius: 8px;
           font-size: 14px;
+          color: #e5e7eb;
+          transition: all 0.2s;
+        }
+        .input:focus {
+          outline: none;
+          border-color: rgba(99, 102, 241, 0.5);
+          box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+        .input::placeholder {
+          color: #4b5563;
         }
         .button-row {
           display: flex;
@@ -485,8 +517,12 @@ export function VaultManager({ onVaultCreated }: VaultManagerProps) {
           color: white;
         }
         .btn-secondary {
-          background: #f3f4f6;
-          color: #374151;
+          background: rgba(99, 102, 241, 0.1);
+          color: #a5b4fc;
+          border: 1px solid rgba(99, 102, 241, 0.2);
+        }
+        .btn-secondary:hover:not(:disabled) {
+          background: rgba(99, 102, 241, 0.2);
         }
         .btn-success {
           background: #22c55e;
@@ -499,7 +535,7 @@ export function VaultManager({ onVaultCreated }: VaultManagerProps) {
         .hint {
           margin-top: 8px;
           font-size: 12px;
-          color: #666;
+          color: #6b7280;
         }
       `}</style>
     </div>
