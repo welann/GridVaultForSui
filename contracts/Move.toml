@@ -1,0 +1,7 @@
+[package]
+name = "grid_vault"
+edition = "2024"
+version = "0.0.1"
+
+[addresses]
+grid_vault = "0x0"
