@@ -18,6 +18,8 @@ import type { BotStatus, GridState, GridConfig, QuoteRecord } from "./types/inde
 interface BotContext {
   running: boolean
   lastTick: number
+  lastPrice: number | null
+  lastPriceAt: number | null
   lastError: string | null
   tickInterval: ReturnType<typeof setInterval> | null
   vaultBalances: { a: bigint; b: bigint }
@@ -26,6 +28,8 @@ interface BotContext {
 const ctx: BotContext = {
   running: false,
   lastTick: 0,
+  lastPrice: null,
+  lastPriceAt: null,
   lastError: null,
   tickInterval: null,
   vaultBalances: { a: BigInt(0), b: BigInt(0) },
@@ -116,6 +120,24 @@ async function init(): Promise<void> {
     strategy,
     configManager,
     getStatus: () => getBotStatus(),
+    getMarketPrice: async () => {
+      try {
+        const now = Date.now()
+        if (ctx.lastPrice !== null && ctx.lastPriceAt && now - ctx.lastPriceAt < 10000) {
+          return { price: ctx.lastPrice, timestamp: ctx.lastPriceAt }
+        }
+        const config = strategy.getConfig()
+        const price = await quoteService.getMarketPrice(config.coinTypeA, config.coinTypeB)
+        if (price !== null) {
+          ctx.lastPrice = price
+          ctx.lastPriceAt = Date.now()
+        }
+        return { price: ctx.lastPrice, timestamp: ctx.lastPriceAt }
+      } catch (error) {
+        console.error("[getMarketPrice] Failed:", error)
+        return { price: ctx.lastPrice, timestamp: ctx.lastPriceAt }
+      }
+    },
     setRunning: (running: boolean) => {
       if (running) {
         startBot()
@@ -160,6 +182,9 @@ async function tick(): Promise<void> {
       await logWarning("Price fetch failed", { timestamp: Date.now() })
       return
     }
+    
+    ctx.lastPrice = price
+    ctx.lastPriceAt = Date.now()
     
     // 2. 网格决策
     const decision = strategy.decide(price)
@@ -431,6 +456,8 @@ function getBotStatus(): BotStatus {
       b: ctx.vaultBalances.b.toString(),
     },
     gridState: strategy?.getState() ?? { lastBand: null, inFlight: false, lastTradeTime: null },
+    lastPrice: ctx.lastPrice,
+    lastPriceAt: ctx.lastPriceAt,
     lastTick: ctx.lastTick,
     lastError: ctx.lastError,
   }

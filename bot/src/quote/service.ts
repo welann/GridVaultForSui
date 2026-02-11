@@ -55,6 +55,8 @@ export class QuoteService {
     side: "A2B" | "B2A",
     from: string,
     target: string,
+    coinTypeA: string,
+    coinTypeB: string,
     amountIn: bigint,
     slippageBps: number
   ): Promise<QuoteResult | null> {
@@ -126,10 +128,13 @@ export class QuoteService {
       const estimatedOut = BigInt(routerData.amountOut.toString())
       const minOut = this.computeMinOut(estimatedOut, slippageBps)
 
-      // 价格 = 输出 / 输入（统一口径）
-      const price = this.computePrice(
+      // 价格 = coinTypeB / coinTypeA（USDC/SUI）
+      const price = this.computePriceBperA(
+        side,
         routerData.amountIn.toString(),
-        routerData.amountOut.toString()
+        routerData.amountOut.toString(),
+        coinTypeA,
+        coinTypeB
       )
 
       await this.recordQuote({
@@ -183,7 +188,7 @@ export class QuoteService {
     amountIn: bigint,
     slippageBps: number
   ): Promise<QuoteResult | null> {
-    return this.getQuote("A2B", coinTypeA, coinTypeB, amountIn, slippageBps)
+    return this.getQuote("A2B", coinTypeA, coinTypeB, coinTypeA, coinTypeB, amountIn, slippageBps)
   }
   
   /**
@@ -197,7 +202,7 @@ export class QuoteService {
     amountIn: bigint,
     slippageBps: number
   ): Promise<QuoteResult | null> {
-    return this.getQuote("B2A", coinTypeB, coinTypeA, amountIn, slippageBps)
+    return this.getQuote("B2A", coinTypeB, coinTypeA, coinTypeA, coinTypeB, amountIn, slippageBps)
   }
   
   /**
@@ -209,18 +214,19 @@ export class QuoteService {
     coinTypeB: string
   ): Promise<number | null> {
     try {
-      // 使用 1 SUI 作为询价金额（9位小数）
-      const testAmount = BigInt(1_000_000_000) // 1 SUI
+      // 使用 1 个基础单位代币做询价（按精度）
+      const testAmountA = BigInt(10) ** BigInt(this.getCoinDecimals(coinTypeA))
+      const testAmountB = BigInt(10) ** BigInt(this.getCoinDecimals(coinTypeB))
       
-      const quote = await this.getQuoteA2B(coinTypeA, coinTypeB, testAmount, 100)
+      const quote = await this.getQuoteA2B(coinTypeA, coinTypeB, testAmountA, 100)
       if (quote) {
         return quote.price
       }
       
       // 如果 A->B 失败，尝试 B->A 并取倒数
-      const quoteB2A = await this.getQuoteB2A(coinTypeA, coinTypeB, testAmount, 100)
+      const quoteB2A = await this.getQuoteB2A(coinTypeA, coinTypeB, testAmountB, 100)
       if (quoteB2A) {
-        return quoteB2A.price === 0 ? null : 1 / quoteB2A.price
+        return quoteB2A.price === 0 ? null : quoteB2A.price
       }
       
       return null
@@ -239,15 +245,50 @@ export class QuoteService {
   }
 
   /**
-   * 计算价格（输出/输入）
+   * 计算价格（coinTypeB / coinTypeA）
    */
-  private computePrice(amountIn: string, amountOut: string): number {
-    const inNum = Number(amountIn)
-    const outNum = Number(amountOut)
-    if (!Number.isFinite(inNum) || !Number.isFinite(outNum) || inNum === 0) {
+  private computePriceBperA(
+    side: "A2B" | "B2A",
+    amountIn: string,
+    amountOut: string,
+    coinTypeA: string,
+    coinTypeB: string
+  ): number {
+    const decimalsA = this.getCoinDecimals(coinTypeA)
+    const decimalsB = this.getCoinDecimals(coinTypeB)
+
+    const rawA = side === "A2B" ? amountIn : amountOut
+    const rawB = side === "A2B" ? amountOut : amountIn
+
+    return this.computePriceFromRaw(rawA, rawB, decimalsA, decimalsB, 6)
+  }
+
+  private computePriceFromRaw(
+    rawA: string,
+    rawB: string,
+    decimalsA: number,
+    decimalsB: number,
+    displayDecimals: number
+  ): number {
+    try {
+      const a = BigInt(rawA)
+      const b = BigInt(rawB)
+      if (a === BigInt(0) || b === BigInt(0)) return 0
+      const scale = BigInt(10) ** BigInt(displayDecimals)
+      const numerator = b * (BigInt(10) ** BigInt(decimalsA)) * scale
+      const denominator = a * (BigInt(10) ** BigInt(decimalsB))
+      const scaled = numerator / denominator
+      return Number(scaled) / 10 ** displayDecimals
+    } catch {
       return 0
     }
-    return outNum / inNum
+  }
+
+  private getCoinDecimals(coinType: string): number {
+    const upper = coinType.toUpperCase()
+    if (upper.includes("::SUI::SUI")) return 9
+    if (upper.includes("USDC") || upper.includes("USDT")) return 6
+    return 9
   }
 
   private async recordQuote(record: QuoteRecord): Promise<void> {

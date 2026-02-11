@@ -26,6 +26,7 @@ export interface ApiDependencies {
   configManager: ConfigManager
   getStatus: () => BotStatus
   setRunning: (running: boolean) => void
+  getMarketPrice: () => Promise<{ price: number | null; timestamp: number | null }>
 }
 
 /**
@@ -97,6 +98,8 @@ export class ApiServer {
       // 路由处理
       if (path === "/status" && method === "GET") {
         await this.handleGetStatus(res)
+      } else if (path === "/price" && method === "GET") {
+        await this.handleGetPrice(res)
       } else if (path === "/history" && method === "GET") {
         await this.handleGetHistory(url, res)
       } else if (path === "/quotes" && method === "GET") {
@@ -125,7 +128,20 @@ export class ApiServer {
    */
   private async handleGetStatus(res: http.ServerResponse): Promise<void> {
     const status = this.deps.getStatus()
+    if (status.lastPrice === null) {
+      const priceData = await this.deps.getMarketPrice()
+      status.lastPrice = priceData.price
+      status.lastPriceAt = priceData.timestamp
+    }
     this.sendJson(res, 200, status)
+  }
+
+  /**
+   * GET /price
+   */
+  private async handleGetPrice(res: http.ServerResponse): Promise<void> {
+    const data = await this.deps.getMarketPrice()
+    this.sendJson(res, 200, data)
   }
   
   /**
@@ -254,6 +270,7 @@ export class ApiServer {
       version: "0.0.1",
       endpoints: [
         { method: "GET", path: "/status", description: "Get bot status" },
+        { method: "GET", path: "/price", description: "Get current market price" },
         { method: "GET", path: "/history", description: "Get trade history" },
         { method: "GET", path: "/quotes", description: "Get quote history" },
         { method: "GET", path: "/config", description: "Get grid config" },

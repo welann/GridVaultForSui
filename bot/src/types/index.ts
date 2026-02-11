@@ -155,6 +155,8 @@ export interface BotStatus {
     b: string
   }
   gridState: GridState
+  lastPrice: number | null
+  lastPriceAt: number | null
   lastTick: number
   lastError: string | null
 }
