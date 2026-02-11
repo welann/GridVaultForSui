@@ -48,3 +48,6 @@ temp/
 *.tmp
 .alma-snapshots/
 contracts/package_summaries/**
+*.db-wal
+*.db-shm
+*.db
