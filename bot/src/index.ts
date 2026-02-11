@@ -196,6 +196,19 @@ async function tick(): Promise<void> {
     if (decision.action.type === "NONE") {
       return
     }
+
+    const amountIn = computeAmountInForAction(decision.action.type, config, price)
+    if (!amountIn || amountIn <= BigInt(0)) {
+      console.warn("[tick] Invalid amountIn computed, aborting trade")
+      strategy.markTradeComplete(false)
+      await logWarning("Amount calculation failed", {
+        action: decision.action.type,
+        price,
+        amountPerGrid: config.amountPerGrid,
+      })
+      return
+    }
+    decision.action.amountIn = amountIn
     
     console.log(`[tick] Price: ${price.toFixed(6)}, Band: ${strategy.getCurrentBand(price)}`)
     console.log(`[tick] Action: ${decision.action.type}, Trigger: ${decision.action.triggerPrice}`)
@@ -304,12 +317,48 @@ async function persistState(): Promise<void> {
 
 const DEFAULT_DECIMALS = 9
 const STABLE_DECIMALS = 6
+const PRICE_SCALE = BigInt(1_000_000)
 
 function getCoinDecimals(coinType: string): number {
   const upper = coinType.toUpperCase()
   if (upper.includes("::SUI::SUI")) return 9
   if (upper.includes("USDC") || upper.includes("USDT")) return STABLE_DECIMALS
   return DEFAULT_DECIMALS
+}
+
+function pow10(decimals: number): bigint {
+  return BigInt(10) ** BigInt(decimals)
+}
+
+function toBaseUnits(amount: number, decimals: number): bigint {
+  const scaled = Math.floor(amount * Math.pow(10, decimals))
+  return BigInt(Math.max(0, scaled))
+}
+
+function computeAmountInForAction(
+  action: "SELL" | "BUY",
+  config: GridConfig,
+  price: number
+): bigint | null {
+  if (!Number.isFinite(price) || price <= 0) return null
+
+  const decimalsA = getCoinDecimals(config.coinTypeA)
+  const decimalsB = getCoinDecimals(config.coinTypeB)
+  const amountBBase = toBaseUnits(config.amountPerGrid, decimalsB)
+
+  if (amountBBase <= BigInt(0)) return null
+
+  if (action === "BUY") {
+    // 以固定 USDC 作为买入输入
+    return amountBBase
+  }
+
+  // SELL: 以 USDC 计价，换算成需卖出的 SUI 数量
+  const priceScaled = BigInt(Math.round(price * 1_000_000))
+  if (priceScaled <= BigInt(0)) return null
+
+  return (amountBBase * pow10(decimalsA) * PRICE_SCALE) /
+    (pow10(decimalsB) * priceScaled)
 }
 
 function formatUnits(amount: string, decimals: number): string {
