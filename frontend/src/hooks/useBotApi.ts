@@ -1,0 +1,140 @@
+"use client"
+
+import { useState, useCallback } from "react"
+import { BOT_API_URL } from "@/lib/constants"
+
+export interface BotStatus {
+  running: boolean
+  vaultId: string
+  balances: {
+    a: string
+    b: string
+  }
+  gridState: {
+    lastBand: number | null
+    inFlight: boolean
+    lastTradeTime: number | null
+  }
+  lastTick: number
+  lastError: string | null
+}
+
+export interface GridConfig {
+  lowerPrice: number
+  upperPrice: number
+  levels: number
+  amountPerGrid: number
+  slippageBps: number
+  coinTypeA: string
+  coinTypeB: string
+}
+
+export interface TradeRecord {
+  id: string
+  digest: string
+  timestamp: number
+  side: "A2B" | "B2A"
+  amountIn: string
+  amountOut: string
+  price: number
+  status: "success" | "failure"
+  error?: string
+}
+
+export function useBotApi() {
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const fetchStatus = useCallback(async (): Promise<BotStatus | null> => {
+    try {
+      const res = await fetch(`${BOT_API_URL}/status`, {
+        // 添加超时，避免长时间等待
+        signal: AbortSignal.timeout(5000),
+      })
+      if (!res.ok) throw new Error("Failed to fetch status")
+      return await res.json()
+    } catch (e) {
+      // 静默失败，避免控制台报错影响用户体验
+      // 错误会在 UI 中通过状态显示
+      return null
+    }
+  }, [])
+
+  const fetchHistory = useCallback(async (limit: number = 100): Promise<TradeRecord[]> => {
+    try {
+      const res = await fetch(`${BOT_API_URL}/history?limit=${limit}`)
+      if (!res.ok) throw new Error("Failed to fetch history")
+      const data = await res.json()
+      return data.trades || []
+    } catch (e) {
+      console.error("fetchHistory error:", e)
+      return []
+    }
+  }, [])
+
+  const fetchConfig = useCallback(async (): Promise<GridConfig | null> => {
+    try {
+      const res = await fetch(`${BOT_API_URL}/config`)
+      if (!res.ok) throw new Error("Failed to fetch config")
+      const data = await res.json()
+      return data.config
+    } catch (e) {
+      console.error("fetchConfig error:", e)
+      return null
+    }
+  }, [])
+
+  const updateConfig = useCallback(async (config: Partial<GridConfig>): Promise<boolean> => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch(`${BOT_API_URL}/config`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(config),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Failed to update config")
+      }
+      return true
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unknown error")
+      return false
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  const controlBot = useCallback(async (command: "start" | "stop" | "pause" | "resume"): Promise<boolean> => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch(`${BOT_API_URL}/control`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ command }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Failed to control bot")
+      }
+      return true
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unknown error")
+      return false
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  return {
+    loading,
+    error,
+    fetchStatus,
+    fetchHistory,
+    fetchConfig,
+    updateConfig,
+    controlBot,
+  }
+}
