@@ -160,6 +160,25 @@ npx tsx test/run-tests.ts
 
 4. **状态依赖**：部分测试依赖于 Vault 的状态，确保按顺序运行测试。
 
+### Mainnet 测试注意事项
+
+在 mainnet 上运行测试时需要特别注意：
+
+1. **余额检查**：mainnet 上不会自动请求水龙头，测试前请确保账户有足够的 SUI 余额。
+
+2. **跳过部分测试**：`permission-tests.ts` 中的"使用错误的 OwnerCap 取款应失败"测试在 mainnet 上会跳过，因为该测试需要创建额外的 Vault 来验证权限，会消耗真实的 Gas。
+
+3. **代币类型**：确保 `.env` 文件中的 `COIN_TYPE_B` 设置为 mainnet 的 USDC 地址：
+   ```env
+   COIN_TYPE_B=0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC
+   ```
+
+4. **风险**：mainnet 测试会消耗真实的代币，建议：
+   - 使用专门的测试账户
+   - 小额存款测试（修改测试文件中的金额）
+   - 仔细确认 Vault ID 和 Cap ID 正确
+   - 避免在 permission-tests.ts 中运行会创建新 Vault 的测试
+
 ## 扩展测试
 
 要添加新的测试，可以创建新的测试文件，参考现有测试的结构：

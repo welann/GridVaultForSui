@@ -74,7 +74,13 @@ async function main() {
   console.log(`攻击者账户: ${attackerAddress}\n`);
 
   // 测试 1: 使用错误的 OwnerCap 应该失败
+  // 注意：此测试在主网上会跳过，因为创建额外的 Vault 需要消耗真实的 Gas
   await runTest('使用错误的 OwnerCap 取款应失败', async () => {
+    if (config.SUI_NETWORK === 'mainnet') {
+      console.log('   ⏭️  主网环境跳过此测试（避免创建额外 Vault 消耗 Gas）');
+      return;
+    }
+    
     // 创建另一个 vault 来获取错误的 owner cap
     const { ownerCapId: wrongOwnerCapId } = await tester.createVault();
     
@@ -145,6 +151,9 @@ async function main() {
   await runTest('Owner 可以正常存款', async () => {
     const balanceA = await tester.getCoinBalance(config.COIN_TYPE_A);
     if (balanceA < BigInt(100)) {
+      if (config.SUI_NETWORK === 'mainnet') {
+        throw new Error(`主网余额不足: 需要 100, 当前 ${balanceA}`);
+      }
       console.log('   余额不足，请求水龙头...');
       try {
         await tester.requestFaucet(config.COIN_TYPE_A);

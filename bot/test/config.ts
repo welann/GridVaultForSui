@@ -31,7 +31,19 @@ export const TX_TIMEOUT_MS = parseInt(process.env.TX_TIMEOUT_MS || '30000');
 
 // 代币类型配置
 export const COIN_TYPE_A = process.env.COIN_TYPE_A || '0x2::sui::SUI';
-export const COIN_TYPE_B = process.env.COIN_TYPE_B || '0x5d4b302506645c37ff133b98c4b50a5ae14841659738d6d733d59d0d217a93bf::coin::COIN';
+// 根据网络选择默认的 Coin B
+export const COIN_TYPE_B = process.env.COIN_TYPE_B || getDefaultCoinB(SUI_NETWORK);
+
+function getDefaultCoinB(network: string): string {
+  switch (network) {
+    case 'mainnet':
+      return '0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC';
+    case 'testnet':
+      return '0x5d4b302506645c37ff133b98c4b50a5ae14841659738d6d733d59d0d217a93bf::coin::COIN';
+    default:
+      return '0x5d4b302506645c37ff133b98c4b50a5ae14841659738d6d733d59d0d217a93bf::coin::COIN';
+  }
+}
 
 // 模块名称
 export const MODULE_NAME = 'grid_vault';

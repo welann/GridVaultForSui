@@ -78,6 +78,9 @@ async function main() {
   // 测试 1: 存款 Coin A
   await runTest('存款 Coin A (1000)', async () => {
     if (balanceA < BigInt(1000)) {
+      if (config.SUI_NETWORK === 'mainnet') {
+        throw new Error(`主网余额不足: 需要 1000, 当前 ${balanceA}`);
+      }
       console.log('   余额不足，尝试请求水龙头...');
       try {
         await tester.requestFaucet(config.COIN_TYPE_A);
