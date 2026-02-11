@@ -1,12 +1,19 @@
 import { createDAppKit } from '@mysten/dapp-kit-react';
 import { SuiClient, getFullnodeUrl } from '@mysten/sui/client';
+import { NETWORK } from './constants';
+
+const NETWORKS = ['testnet', 'mainnet', 'localnet'] as const;
 
 export const dAppKit = createDAppKit({
-	networks: ['testnet', 'mainnet', 'localnet'],
+	networks: NETWORKS,
+	defaultNetwork: NETWORKS.includes(NETWORK as (typeof NETWORKS)[number])
+		? (NETWORK as (typeof NETWORKS)[number])
+		: NETWORKS[0],
 	createClient: (network) => {
-		return new SuiClient({ 
-			url: getFullnodeUrl(network as 'testnet' | 'mainnet' | 'localnet')
-		})
+		return new SuiClient({
+			url: getFullnodeUrl(network),
+			network,
+		});
 	},
 });
 

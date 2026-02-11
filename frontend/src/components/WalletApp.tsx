@@ -6,6 +6,7 @@ import { VaultManager } from './VaultManager';
 import { BotControl } from './BotControl';
 import { TradeHistory } from './TradeHistory';
 import { LogPanel } from './LogPanel';
+import { GridStatus } from './GridStatus';
 
 export default function WalletApp() {
 	return (
@@ -31,6 +32,7 @@ export default function WalletApp() {
 					<div className="content">
 						{/* 左侧：Vault 管理 */}
 						<div className="left-panel">
+							<GridStatus />
 							<VaultManager />
 						</div>
 

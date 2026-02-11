@@ -15,6 +15,8 @@ export interface BotStatus {
     inFlight: boolean
     lastTradeTime: number | null
   }
+  lastPrice: number | null
+  lastPriceAt: number | null
   lastTick: number
   lastError: string | null
 }
@@ -37,6 +39,23 @@ export interface TradeRecord {
   amountIn: string
   amountOut: string
   price: number
+  status: "success" | "failure"
+  error?: string
+}
+
+export interface QuoteRecord {
+  id: string
+  timestamp: number
+  side: "A2B" | "B2A"
+  fromCoin: string
+  targetCoin: string
+  amountIn: string
+  amountOut: string
+  minOut: string
+  price: number | null
+  priceImpact: number | null
+  byAmountIn: boolean
+  quoteId?: string
   status: "success" | "failure"
   error?: string
 }
@@ -68,6 +87,17 @@ export function useBotApi() {
     }
   }, [])
 
+  const fetchPrice = useCallback(async (): Promise<{ price: number | null; timestamp: number | null } | null> => {
+    try {
+      const res = await fetch(`${BOT_API_URL}/price`)
+      if (!res.ok) throw new Error("Failed to fetch price")
+      return await res.json()
+    } catch (e) {
+      console.error("fetchPrice error:", e)
+      return null
+    }
+  }, [])
+
   const fetchHistory = useCallback(async (limit: number = 100): Promise<TradeRecord[]> => {
     try {
       const res = await fetch(`${BOT_API_URL}/history?limit=${limit}`)
@@ -76,6 +106,18 @@ export function useBotApi() {
       return data.trades || []
     } catch (e) {
       console.error("fetchHistory error:", e)
+      return []
+    }
+  }, [])
+
+  const fetchQuotes = useCallback(async (limit: number = 200): Promise<QuoteRecord[]> => {
+    try {
+      const res = await fetch(`${BOT_API_URL}/quotes?limit=${limit}`)
+      if (!res.ok) throw new Error("Failed to fetch quotes")
+      const data = await res.json()
+      return data.quotes || []
+    } catch (e) {
+      console.error("fetchQuotes error:", e)
       return []
     }
   }, [])
@@ -152,7 +194,9 @@ export function useBotApi() {
     loading,
     error,
     fetchStatus,
+    fetchPrice,
     fetchHistory,
+    fetchQuotes,
     fetchConfig,
     updateConfig,
     controlBot,

@@ -18,7 +18,8 @@ export function VaultManager({ onVaultCreated }: VaultManagerProps) {
   // 创建独立的 SuiClient
   const suiClient = useMemo(() => {
     return new SuiClient({ 
-      url: RPC_URL 
+      url: RPC_URL,
+      network: NETWORK as "mainnet" | "testnet" | "localnet",
     })
   }, [])
   
@@ -27,6 +28,7 @@ export function VaultManager({ onVaultCreated }: VaultManagerProps) {
   const [ownerCapId, setOwnerCapId] = useState("")
   const [traderCapId, setTraderCapId] = useState("")
   const [depositAmount, setDepositAmount] = useState("")
+  const [selectedAsset, setSelectedAsset] = useState<"SUI" | "USDC">("SUI")
   const [userVaults, setUserVaults] = useState<Array<{id: string, balanceA: string, balanceB: string}>>([])
 
   /**
@@ -117,33 +119,84 @@ export function VaultManager({ onVaultCreated }: VaultManagerProps) {
     }
   }
 
-  const depositSUI = async () => {
+  const parseAmountToBigInt = (value: string, decimals: number): bigint | null => {
+    const trimmed = value.trim()
+    if (!trimmed) return null
+    if (!/^\d+(\.\d+)?$/.test(trimmed)) return null
+    const [intPart, fracPart = ""] = trimmed.split(".")
+    if (fracPart.length > decimals) return null
+    const frac = fracPart.padEnd(decimals, "0")
+    const full = `${intPart}${frac}`.replace(/^0+/, "") || "0"
+    return BigInt(full)
+  }
+
+  const getDecimals = () => (selectedAsset === "SUI" ? 9 : 6)
+
+  const depositAsset = async () => {
     if (!account || !vaultId || !depositAmount || !ownerCapId) {
       alert("请填写 Vault ID、OwnerCap ID 和存款金额")
       return
     }
 
-    const tx = new Transaction()
-    const amount = BigInt(Math.floor(parseFloat(depositAmount) * 1e9))
+    const decimals = getDecimals()
+    const amount = parseAmountToBigInt(depositAmount, decimals)
 
-    if (amount <= 0) {
-      alert("金额必须大于 0")
+    if (!amount || amount <= 0) {
+      alert("金额必须大于 0，且小数位不能超过精度")
       return
     }
 
-    // 分币
-    const [coin] = tx.splitCoins(tx.gas, [tx.pure.u64(amount)])
+    const tx = new Transaction()
 
-    // 存入 Vault
-    tx.moveCall({
-      target: `${PACKAGE_ID}::grid_vault::deposit_a`,
-      typeArguments: [COIN_TYPE_SUI, COIN_TYPE_USDC],
-      arguments: [
-        tx.object(vaultId),
-        tx.object(ownerCapId),
-        coin,
-      ],
-    })
+    if (selectedAsset === "SUI") {
+      // 分币
+      const [coin] = tx.splitCoins(tx.gas, [tx.pure.u64(amount)])
+
+      tx.moveCall({
+        target: `${PACKAGE_ID}::grid_vault::deposit_a`,
+        typeArguments: [COIN_TYPE_SUI, COIN_TYPE_USDC],
+        arguments: [
+          tx.object(vaultId),
+          tx.object(ownerCapId),
+          coin,
+        ],
+      })
+    } else {
+      // USDC：从钱包取币
+      const coins = await suiClient.getCoins({
+        owner: account.address,
+        coinType: COIN_TYPE_USDC,
+      })
+
+      if (coins.data.length === 0) {
+        alert("钱包中没有 USDC")
+        return
+      }
+
+      const total = coins.data.reduce((sum, c) => sum + BigInt(c.balance), BigInt(0))
+      if (total < amount) {
+        alert("USDC 余额不足")
+        return
+      }
+
+      const primary = tx.object(coins.data[0].coinObjectId)
+      const extras = coins.data.slice(1).map((c) => tx.object(c.coinObjectId))
+      if (extras.length > 0) {
+        tx.mergeCoins(primary, extras)
+      }
+
+      const [coin] = tx.splitCoins(primary, [tx.pure.u64(amount)])
+
+      tx.moveCall({
+        target: `${PACKAGE_ID}::grid_vault::deposit_b`,
+        typeArguments: [COIN_TYPE_SUI, COIN_TYPE_USDC],
+        arguments: [
+          tx.object(vaultId),
+          tx.object(ownerCapId),
+          coin,
+        ],
+      })
+    }
 
     try {
       const result = await dAppKit.signAndExecuteTransaction({ transaction: tx })
@@ -161,33 +214,45 @@ export function VaultManager({ onVaultCreated }: VaultManagerProps) {
     }
   }
 
-  const withdrawSUI = async () => {
+  const withdrawAsset = async () => {
     if (!account || !vaultId || !depositAmount || !ownerCapId) {
       alert("请填写 Vault ID、OwnerCap ID 和取款金额")
       return
     }
 
-    const tx = new Transaction()
-    const amount = BigInt(Math.floor(parseFloat(depositAmount) * 1e9))
+    const decimals = getDecimals()
+    const amount = parseAmountToBigInt(depositAmount, decimals)
 
-    if (amount <= 0) {
-      alert("金额必须大于 0")
+    if (!amount || amount <= 0) {
+      alert("金额必须大于 0，且小数位不能超过精度")
       return
     }
 
-    // 取款
-    const coin = tx.moveCall({
-      target: `${PACKAGE_ID}::grid_vault::withdraw_a`,
-      typeArguments: [COIN_TYPE_SUI, COIN_TYPE_USDC],
-      arguments: [
-        tx.object(vaultId),
-        tx.object(ownerCapId),
-        tx.pure.u64(amount),
-      ],
-    })
+    const tx = new Transaction()
 
-    // 将取出的币转给用户
-    tx.transferObjects([coin], account.address)
+    if (selectedAsset === "SUI") {
+      const coin = tx.moveCall({
+        target: `${PACKAGE_ID}::grid_vault::withdraw_a`,
+        typeArguments: [COIN_TYPE_SUI, COIN_TYPE_USDC],
+        arguments: [
+          tx.object(vaultId),
+          tx.object(ownerCapId),
+          tx.pure.u64(amount),
+        ],
+      })
+      tx.transferObjects([coin], account.address)
+    } else {
+      const coin = tx.moveCall({
+        target: `${PACKAGE_ID}::grid_vault::withdraw_b`,
+        typeArguments: [COIN_TYPE_SUI, COIN_TYPE_USDC],
+        arguments: [
+          tx.object(vaultId),
+          tx.object(ownerCapId),
+          tx.pure.u64(amount),
+        ],
+      })
+      tx.transferObjects([coin], account.address)
+    }
 
     try {
       const result = await dAppKit.signAndExecuteTransaction({ transaction: tx })
@@ -287,6 +352,20 @@ export function VaultManager({ onVaultCreated }: VaultManagerProps) {
 
         <div className="section">
           <h3>资金操作</h3>
+          <div className="toggle-row">
+            <button
+              onClick={() => setSelectedAsset("SUI")}
+              className={`btn ${selectedAsset === "SUI" ? "btn-primary" : "btn-secondary"}`}
+            >
+              SUI
+            </button>
+            <button
+              onClick={() => setSelectedAsset("USDC")}
+              className={`btn ${selectedAsset === "USDC" ? "btn-primary" : "btn-secondary"}`}
+            >
+              USDC
+            </button>
+          </div>
           <input
             type="text"
             placeholder="Vault ID"
@@ -303,17 +382,17 @@ export function VaultManager({ onVaultCreated }: VaultManagerProps) {
           />
           <input
             type="number"
-            placeholder="金额 (SUI)"
+            placeholder={`金额 (${selectedAsset})`}
             value={depositAmount}
             onChange={(e) => setDepositAmount(e.target.value)}
             className="input"
           />
           <div className="button-row">
-            <button onClick={depositSUI} className="btn btn-primary">
-              存入 SUI
+            <button onClick={depositAsset} className="btn btn-primary">
+              存入 {selectedAsset}
             </button>
-            <button onClick={withdrawSUI} className="btn btn-secondary">
-              取出 SUI
+            <button onClick={withdrawAsset} className="btn btn-secondary">
+              取出 {selectedAsset}
             </button>
           </div>
         </div>
@@ -381,6 +460,11 @@ export function VaultManager({ onVaultCreated }: VaultManagerProps) {
         .button-row {
           display: flex;
           gap: 12px;
+        }
+        .toggle-row {
+          display: flex;
+          gap: 12px;
+          margin-bottom: 12px;
         }
         .btn {
           padding: 10px 20px;

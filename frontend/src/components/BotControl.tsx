@@ -17,9 +17,11 @@ export function BotControl() {
     if (s) setStatus(s)
     if (c) {
       setConfig(c)
-      setEditingConfig(c)
+      if (!showEdit) {
+        setEditingConfig(c)
+      }
     }
-  }, [api])
+  }, [api, showEdit])
 
   // 定时刷新
   useEffect(() => {
@@ -36,11 +38,45 @@ export function BotControl() {
   }
 
   const handleSaveConfig = async () => {
-    const success = await api.updateConfig(editingConfig)
+    const payload = sanitizeConfig(editingConfig)
+    const success = await api.updateConfig(payload)
     if (success) {
       setShowEdit(false)
       await refresh()
     }
+  }
+
+  const toggleEdit = () => {
+    if (!showEdit && config) {
+      setEditingConfig(config)
+    }
+    setShowEdit(!showEdit)
+  }
+
+  const parseNumber = (value: string, type: "int" | "float") => {
+    if (value.trim() === "") return undefined
+    const parsed = type === "int" ? parseInt(value, 10) : parseFloat(value)
+    return Number.isFinite(parsed) ? parsed : undefined
+  }
+
+  const sanitizeConfig = (draft: Partial<GridConfig>): Partial<GridConfig> => {
+    const cleaned: Partial<GridConfig> = {}
+    if (typeof draft.lowerPrice === "number" && Number.isFinite(draft.lowerPrice)) {
+      cleaned.lowerPrice = draft.lowerPrice
+    }
+    if (typeof draft.upperPrice === "number" && Number.isFinite(draft.upperPrice)) {
+      cleaned.upperPrice = draft.upperPrice
+    }
+    if (typeof draft.levels === "number" && Number.isFinite(draft.levels)) {
+      cleaned.levels = draft.levels
+    }
+    if (typeof draft.amountPerGrid === "number" && Number.isFinite(draft.amountPerGrid)) {
+      cleaned.amountPerGrid = draft.amountPerGrid
+    }
+    if (typeof draft.slippageBps === "number" && Number.isFinite(draft.slippageBps)) {
+      cleaned.slippageBps = draft.slippageBps
+    }
+    return cleaned
   }
 
   return (
@@ -121,7 +157,7 @@ export function BotControl() {
         <div className="config-header">
           <h2>⚙️ 网格配置</h2>
           <button 
-            onClick={() => setShowEdit(!showEdit)} 
+            onClick={toggleEdit} 
             className="btn btn-secondary"
           >
             {showEdit ? "取消" : "编辑"}
@@ -138,7 +174,7 @@ export function BotControl() {
                     type="number"
                     step="0.01"
                     value={editingConfig.lowerPrice ?? config.lowerPrice}
-                    onChange={(e) => setEditingConfig({ ...editingConfig, lowerPrice: parseFloat(e.target.value) })}
+                    onChange={(e) => setEditingConfig({ ...editingConfig, lowerPrice: parseNumber(e.target.value, "float") })}
                   />
                 </div>
                 <div className="form-row">
@@ -147,7 +183,7 @@ export function BotControl() {
                     type="number"
                     step="0.01"
                     value={editingConfig.upperPrice ?? config.upperPrice}
-                    onChange={(e) => setEditingConfig({ ...editingConfig, upperPrice: parseFloat(e.target.value) })}
+                    onChange={(e) => setEditingConfig({ ...editingConfig, upperPrice: parseNumber(e.target.value, "float") })}
                   />
                 </div>
                 <div className="form-row">
@@ -157,7 +193,7 @@ export function BotControl() {
                     min="2"
                     max="100"
                     value={editingConfig.levels ?? config.levels}
-                    onChange={(e) => setEditingConfig({ ...editingConfig, levels: parseInt(e.target.value) })}
+                    onChange={(e) => setEditingConfig({ ...editingConfig, levels: parseNumber(e.target.value, "int") })}
                   />
                 </div>
                 <div className="form-row">
@@ -165,7 +201,7 @@ export function BotControl() {
                   <input
                     type="number"
                     value={editingConfig.amountPerGrid ?? config.amountPerGrid}
-                    onChange={(e) => setEditingConfig({ ...editingConfig, amountPerGrid: parseFloat(e.target.value) })}
+                    onChange={(e) => setEditingConfig({ ...editingConfig, amountPerGrid: parseNumber(e.target.value, "float") })}
                   />
                 </div>
                 <div className="form-row">
@@ -173,7 +209,7 @@ export function BotControl() {
                   <input
                     type="number"
                     value={editingConfig.slippageBps ?? config.slippageBps}
-                    onChange={(e) => setEditingConfig({ ...editingConfig, slippageBps: parseInt(e.target.value) })}
+                    onChange={(e) => setEditingConfig({ ...editingConfig, slippageBps: parseNumber(e.target.value, "int") })}
                   />
                 </div>
                 <button 
