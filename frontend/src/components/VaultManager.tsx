@@ -2,9 +2,9 @@
 
 import { useCurrentAccount, useDAppKit } from "@mysten/dapp-kit-react"
 import { Transaction } from "@mysten/sui/transactions"
-import { SuiJsonRpcClient, getJsonRpcFullnodeUrl } from "@mysten/sui/jsonRpc"
+import { SuiClient } from "@mysten/sui/client"
 import { useState, useCallback, useMemo } from "react"
-import { PACKAGE_ID, COIN_TYPE_SUI, COIN_TYPE_USDC } from "@/lib/constants"
+import { PACKAGE_ID, COIN_TYPE_SUI, COIN_TYPE_USDC, NETWORK, RPC_URL } from "@/lib/constants"
 import { shortenAddress } from "@/lib/utils"
 
 interface VaultManagerProps {
@@ -17,9 +17,8 @@ export function VaultManager({ onVaultCreated }: VaultManagerProps) {
   
   // 创建独立的 SuiClient
   const suiClient = useMemo(() => {
-    return new SuiJsonRpcClient({ 
-      url: getJsonRpcFullnodeUrl('testnet'),
-      network: 'testnet'
+    return new SuiClient({ 
+      url: RPC_URL 
     })
   }, [])
   
