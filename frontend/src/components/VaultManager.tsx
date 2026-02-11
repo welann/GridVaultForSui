@@ -17,7 +17,7 @@ export function VaultManager({ onVaultCreated }: VaultManagerProps) {
 
   type DAppKitTxInput = Parameters<typeof dAppKit.signAndExecuteTransaction>[0]["transaction"]
   
-  // 创建独立的 SuiClient
+  // Create independent SuiClient
   const suiClient = useMemo(() => {
     return new SuiClient({ 
       url: RPC_URL,
@@ -40,13 +40,13 @@ export function VaultManager({ onVaultCreated }: VaultManagerProps) {
   }
 
   /**
-   * 查询用户的 Vault 列表
+   * Query user's Vault list
    */
   const fetchUserVaults = useCallback(async () => {
     if (!account) return
     
     try {
-      // 查询用户拥有的 OwnerCap 对象
+      // Query OwnerCap objects owned by user
       const ownerCaps = await suiClient.getOwnedObjects({
         owner: account.address,
         filter: {
@@ -57,7 +57,7 @@ export function VaultManager({ onVaultCreated }: VaultManagerProps) {
         },
       })
       
-      // 获取每个 OwnerCap 对应的 Vault
+      // Get Vault corresponding to each OwnerCap
       const vaults = await Promise.all(
         ownerCaps.data.map(async (cap) => {
           const capData = cap.data?.content as any
@@ -89,7 +89,7 @@ export function VaultManager({ onVaultCreated }: VaultManagerProps) {
     }
   }, [account, suiClient])
 
-  // 自动刷新 Vault 列表
+  // Auto refresh Vault list
   useEffect(() => {
     if (!account) return
     fetchUserVaults()
@@ -104,13 +104,13 @@ export function VaultManager({ onVaultCreated }: VaultManagerProps) {
     try {
       const tx = new Transaction()
       
-      // 调用 create_and_share 创建 Vault
+      // Call create_and_share to create Vault
       const [ownerCap, traderCap] = tx.moveCall({
         target: `${PACKAGE_ID}::grid_vault::create_and_share`,
         typeArguments: [COIN_TYPE_SUI, COIN_TYPE_USDC],
       })
 
-      // 转移 OwnerCap 和 TraderCap 给用户
+      // Transfer OwnerCap and TraderCap to user
       tx.transferObjects([ownerCap, traderCap], account.address)
 
       const result = await signAndExecute(tx)
@@ -121,7 +121,7 @@ export function VaultManager({ onVaultCreated }: VaultManagerProps) {
 
       console.log("Vault created:", result)
       
-      // 等待一下让对象索引更新
+      // Wait for object index to update
       setTimeout(async () => {
         await fetchUserVaults()
       }, 2000)
@@ -129,7 +129,7 @@ export function VaultManager({ onVaultCreated }: VaultManagerProps) {
       onVaultCreated?.(vaultId, ownerCapId, traderCapId)
     } catch (error: any) {
       console.error("Create vault error:", error)
-      alert(`创建 Vault 失败: ${error.message}`)
+      alert(`Failed to create Vault: ${error.message}`)
     } finally {
       setCreating(false)
     }
@@ -150,7 +150,7 @@ export function VaultManager({ onVaultCreated }: VaultManagerProps) {
 
   const depositAsset = async () => {
     if (!account || !vaultId || !depositAmount || !ownerCapId) {
-      alert("请填写 Vault ID、OwnerCap ID 和存款金额")
+      alert("Please fill in Vault ID, OwnerCap ID and deposit amount")
       return
     }
 
@@ -158,14 +158,14 @@ export function VaultManager({ onVaultCreated }: VaultManagerProps) {
     const amount = parseAmountToBigInt(depositAmount, decimals)
 
     if (!amount || amount <= 0) {
-      alert("金额必须大于 0，且小数位不能超过精度")
+      alert("Amount must be greater than 0 and decimals cannot exceed precision")
       return
     }
 
     const tx = new Transaction()
 
     if (selectedAsset === "SUI") {
-      // 分币
+      // Split coins
       const [coin] = tx.splitCoins(tx.gas, [tx.pure.u64(amount)])
 
       tx.moveCall({
@@ -178,20 +178,20 @@ export function VaultManager({ onVaultCreated }: VaultManagerProps) {
         ],
       })
     } else {
-      // USDC：从钱包取币
+      // USDC: Get coins from wallet
       const coins = await suiClient.getCoins({
         owner: account.address,
         coinType: COIN_TYPE_USDC,
       })
 
       if (coins.data.length === 0) {
-        alert("钱包中没有 USDC")
+        alert("No USDC in wallet")
         return
       }
 
       const total = coins.data.reduce((sum, c) => sum + BigInt(c.balance), BigInt(0))
       if (total < amount) {
-        alert("USDC 余额不足")
+        alert("Insufficient USDC balance")
         return
       }
 
@@ -221,18 +221,18 @@ export function VaultManager({ onVaultCreated }: VaultManagerProps) {
         throw new Error(`Transaction failed: ${result.FailedTransaction.status.error?.message}`)
       }
 
-      alert("存款成功！")
+      alert("Deposit successful!")
       setDepositAmount("")
       fetchUserVaults()
     } catch (error: any) {
       console.error("Deposit error:", error)
-      alert(`存款失败: ${error.message}`)
+      alert(`Deposit failed: ${error.message}`)
     }
   }
 
   const withdrawAsset = async () => {
     if (!account || !vaultId || !depositAmount || !ownerCapId) {
-      alert("请填写 Vault ID、OwnerCap ID 和取款金额")
+      alert("Please fill in Vault ID, OwnerCap ID and withdrawal amount")
       return
     }
 
@@ -240,7 +240,7 @@ export function VaultManager({ onVaultCreated }: VaultManagerProps) {
     const amount = parseAmountToBigInt(depositAmount, decimals)
 
     if (!amount || amount <= 0) {
-      alert("金额必须大于 0，且小数位不能超过精度")
+      alert("Amount must be greater than 0 and decimals cannot exceed precision")
       return
     }
 
@@ -277,18 +277,18 @@ export function VaultManager({ onVaultCreated }: VaultManagerProps) {
         throw new Error(`Transaction failed: ${result.FailedTransaction.status.error?.message}`)
       }
 
-      alert("取款成功！")
+      alert("Withdrawal successful!")
       setDepositAmount("")
       fetchUserVaults()
     } catch (error: any) {
       console.error("Withdraw error:", error)
-      alert(`取款失败: ${error.message}`)
+      alert(`Withdrawal failed: ${error.message}`)
     }
   }
 
   const setPaused = async (paused: boolean) => {
     if (!account || !vaultId || !ownerCapId) {
-      alert("请填写 Vault ID 和 OwnerCap ID")
+      alert("Please fill in Vault ID and OwnerCap ID")
       return
     }
 
@@ -311,18 +311,18 @@ export function VaultManager({ onVaultCreated }: VaultManagerProps) {
         throw new Error(`Transaction failed: ${result.FailedTransaction.status.error?.message}`)
       }
 
-      alert(paused ? "Vault 已暂停" : "Vault 已恢复")
+      alert(paused ? "Vault paused" : "Vault resumed")
       fetchUserVaults()
     } catch (error: any) {
       console.error("Set paused error:", error)
-      alert(`操作失败: ${error.message}`)
+      alert(`Operation failed: ${error.message}`)
     }
   }
 
   if (!account) {
     return (
       <div className="card">
-        <p>请先连接钱包</p>
+        <p>Please connect wallet first</p>
       </div>
     )
   }
@@ -330,32 +330,32 @@ export function VaultManager({ onVaultCreated }: VaultManagerProps) {
   return (
     <div className="vault-manager">
       <div className="card">
-        <h2>🏦 Vault 管理</h2>
+        <h2>🏦 Vault Manager</h2>
         
         <div className="section">
-          <h3>创建 Vault</h3>
+          <h3>Create Vault</h3>
           <button 
             onClick={createVault} 
             disabled={creating || !PACKAGE_ID}
             className="btn btn-primary"
           >
-            {creating ? "创建中..." : "创建新 Vault"}
+            {creating ? "Creating..." : "Create New Vault"}
           </button>
           <button 
             onClick={fetchUserVaults}
             className="btn btn-secondary"
             style={{ marginLeft: 12 }}
           >
-            刷新列表
+            Refresh List
           </button>
           {!PACKAGE_ID && (
-            <p className="hint">请先在环境变量中配置 PACKAGE_ID</p>
+            <p className="hint">Please configure PACKAGE_ID in environment variables first</p>
           )}
         </div>
 
         {userVaults.length > 0 && (
           <div className="section">
-            <h3>我的 Vault</h3>
+            <h3>My Vaults</h3>
             {userVaults.map((vault) => (
               <div key={vault.id} className="vault-item">
                 <p>ID: {shortenAddress(vault.id)}</p>
@@ -367,7 +367,7 @@ export function VaultManager({ onVaultCreated }: VaultManagerProps) {
         )}
 
         <div className="section">
-          <h3>资金操作</h3>
+          <h3>Fund Operations</h3>
           <div className="toggle-row">
             <button
               onClick={() => setSelectedAsset("SUI")}
@@ -398,29 +398,29 @@ export function VaultManager({ onVaultCreated }: VaultManagerProps) {
           />
           <input
             type="number"
-            placeholder={`金额 (${selectedAsset})`}
+            placeholder={`Amount (${selectedAsset})`}
             value={depositAmount}
             onChange={(e) => setDepositAmount(e.target.value)}
             className="input"
           />
           <div className="button-row">
             <button onClick={depositAsset} className="btn btn-primary">
-              存入 {selectedAsset}
+              Deposit {selectedAsset}
             </button>
             <button onClick={withdrawAsset} className="btn btn-secondary">
-              取出 {selectedAsset}
+              Withdraw {selectedAsset}
             </button>
           </div>
         </div>
 
         <div className="section">
-          <h3>暂停控制</h3>
+          <h3>Pause Control</h3>
           <div className="button-row">
             <button onClick={() => setPaused(true)} className="btn btn-danger">
-              暂停交易
+              Pause Trading
             </button>
             <button onClick={() => setPaused(false)} className="btn btn-success">
-              恢复交易
+              Resume Trading
             </button>
           </div>
         </div>

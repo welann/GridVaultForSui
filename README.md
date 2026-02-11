@@ -1,158 +1,268 @@
+
 # GridVault
 
-Sui 区块链上的网格交易机器人 PoC。
+![GridVault Banner](./resources/image.png)
 
-## 项目结构
+A grid trading bot PoC on the Sui blockchain. GridVault automates buy-low-sell-high strategies by placing orders at predefined price intervals within a range.
+
+## Overview
+
+GridVault consists of three main components working together:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    Frontend (Next.js)                           │
+│         Vault Manager │ Bot Control │ Trade History             │
+└─────────────────────────────────────────────────────────────────┘
+                              ↕ HTTP API
+┌─────────────────────────────────────────────────────────────────┐
+│                     Bot Layer (Node.js)                         │
+│    ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐          │
+│    │Strategy │  │ Quote   │  │Executor │  │ Storage │          │
+│    │ (Grid)  │  │(Cetus)  │  │ (Trade) │  │(SQLite) │          │
+│    └─────────┘  └─────────┘  └─────────┘  └─────────┘          │
+└─────────────────────────────────────────────────────────────────┘
+                              ↕ Sui RPC / Cetus API
+┌─────────────────────────────────────────────────────────────────┐
+│                     On-Chain (Sui Move)                         │
+│    ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐          │
+│    │OwnerCap │  │TraderCap│  │  Vault  │  │ Events  │          │
+│    └─────────┘  └─────────┘  └─────────┘  └─────────┘          │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+## How It Works
+
+### 1. Vault Contract (Move)
+
+The smart contract implements a dual-token vault with separated permissions:
+
+- **Vault<A, B>**: A shared object holding balances of two tokens
+- **OwnerCap**: Owner privileges (deposit/withdraw/pause)
+- **TraderCap**: Trader privileges (execute trades only)
+
+Key security features:
+- Bot cannot withdraw funds directly - only the Owner can
+- All swap outputs must flow back into the Vault
+- Owner can pause trading at any time
+
+### 2. Grid Trading Strategy
+
+The bot implements a classic grid trading algorithm:
+
+1. **Price Range**: Define a price interval `[lowerPrice, upperPrice]`
+2. **Grid Levels**: Divide the range into N equal bands
+3. **Signals**:
+   - Price drops to a lower band → **BUY** (token A)
+   - Price rises to a higher band → **SELL** (token A)
+4. **Single Concurrency**: Only one trade at a time to prevent conflicts
+
+### 3. Trade Execution Flow
+
+```
+Tick Trigger
+     ↓
+Fetch Cetus Price ───────────────────────────┐
+     ↓                                        │
+Grid Strategy Evaluation                     │
+     │                                        │
+     ├── Price above previous band → SELL_A   │
+     │                                        │
+     └── Price below previous band → BUY_A    │
+                 │                            │
+                 ↓                            │
+         Get Cetus Aggregator Quote          │
+         (route + estimated output)          │
+                 │                            │
+                 ↓                            │
+         Build PTB (4-step atomic operation) │
+                 │                            │
+                 ├── 1. trader_withdraw_*    │  Withdraw from Vault
+                 ├── 2. routerSwap           │  Swap via Cetus
+                 ├── 3. trader_deposit_*     │  Deposit back to Vault
+                 └── 4. trader_swap_*_to_*   │  Record trade
+                                 │           │
+                                 ↓           │
+                         Sign & Submit ◀─────┘
+                                 ↓
+                         Wait for confirmation
+                                 ↓
+                         Update local state
+```
+
+### 4. Data Persistence
+
+- **SQLite** stores grid state, trade history, and logs
+- All trades are recorded with price, amounts, and timestamps
+- HTTP API provides access to status, history, and configuration
+
+## Project Structure
 
 ```
 GridVault/
-├── contracts/          # Move 智能合约
-│   ├── sources/       # 合约源码 (grid_vault.move)
-│   ├── tests/         # Move 单元测试
-│   ├── package.json   # TypeScript 测试依赖
-│   └── tsconfig.json  # TypeScript 配置
-├── bot/               # TypeScript 交易机器人
-│   ├── src/           # 源码
-│   │   ├── strategy/  # 网格策略
-│   │   ├── quote/     # 报价服务
-│   │   ├── executor/  # 交易执行
-│   │   ├── storage/   # SQLite 存储
-│   │   ├── api/       # HTTP API
-│   │   └── config/    # 配置管理
-│   ├── test/          # 集成测试
-│   │   ├── ContractTester.ts    # 合约测试工具
-│   │   ├── vault-tests.ts       # Vault 测试
-│   │   ├── deposit-tests.ts     # 存取款测试
-│   │   ├── permission-tests.ts  # 权限测试
-│   │   └── run-tests.ts         # 测试入口
-│   ├── .env           # 环境变量
-│   └── .env.example   # 环境变量示例
-├── frontend/          # Next.js 管理面板
-│   ├── src/
-│   │   ├── app/       # 页面
-│   │   ├── components/# 组件 (WalletApp.tsx)
-│   │   └── lib/       # 工具库
-│   ├── .env.local     # 环境变量
-│   └── README.md      # 前端说明
-└── docs/              # 文档
-    ├── plan.md        # 项目规划
-    └── DEV.md         # 开发指南
+├── contracts/          # Move smart contracts
+│   ├── sources/       # Contract source (contracts.move)
+│   ├── tests/         # Move unit tests
+│   └── Move.toml      # Move configuration
+├── bot/               # TypeScript trading bot
+│   ├── src/           # Source code
+│   │   ├── strategy/  # Grid strategy implementation
+│   │   ├── quote/     # Cetus Aggregator integration
+│   │   ├── executor/  # Transaction execution
+│   │   ├── storage/   # SQLite persistence
+│   │   └── api/       # HTTP API server
+│   ├── test/          # Integration tests
+│   └── .env.example   # Environment template
+├── frontend/          # Next.js admin panel
+│   └── src/
+│       ├── app/       # Pages
+│       ├── components/# React components
+│       └── lib/       # Utilities
+└── docs/              # Documentation
+    ├── ARCHITECTURE.md
+    ├── DEV.md
+    └── PLAN.md
 ```
 
-## 快速开始
+## Quick Start
 
-### 1. 合约（Move）
+### Prerequisites
+
+- [Sui CLI](https://docs.sui.io/guides/developer/getting-started/sui-install) installed
+- Node.js 18+ and npm
+- Sui wallet with testnet SUI tokens
+
+### 1. Deploy Contracts
 
 ```bash
 cd contracts
 
-# 运行 Move 单元测试
-sui move test
-
-# 构建合约
+# Build the contract
 sui move build
 
-# 部署合约（需要配置私钥）
+# Run unit tests
+sui move test
+
+# Deploy to testnet (requires configured sui client)
 sui client publish
 ```
 
-### 2. Bot（TypeScript）
+After deployment, note the `Package ID` from the output.
+
+### 2. Configure & Start Bot
 
 ```bash
 cd bot
 npm install
 
-# 配置环境变量
+# Copy environment template
 cp .env.example .env
-# 编辑 .env 填入必要配置：
-# - SUI_PRIVATE_KEY: 私钥
-# - PACKAGE_ID: 部署后的合约包 ID
-# - VAULT_ID: Vault 对象 ID（可选，首次运行会自动创建）
 
-npm run dev          # 开发模式
+# Edit .env with your values:
+# - SUI_PRIVATE_KEY: Your bot's private key (suiprivkey1 format)
+# - PACKAGE_ID: The deployed contract package ID
+# - GRID_LOWER_PRICE: Lower bound of grid range
+# - GRID_UPPER_PRICE: Upper bound of grid range
+# - GRID_LEVELS: Number of grid levels
+# - COIN_TYPE_A, COIN_TYPE_B: Token types to trade
+
+npm run dev          # Start bot in development mode
 ```
 
-### 3. 运行合约集成测试
+The bot API will be available at `http://localhost:3215`.
 
-```bash
-cd bot
-
-# 运行所有测试
-npx tsx test/run-tests.ts
-
-# 运行单个测试
-npx tsx test/vault-tests.ts
-npx tsx test/deposit-tests.ts
-npx tsx test/permission-tests.ts
-```
-
-### 4. 前端（Next.js）
+### 3. Configure & Start Frontend
 
 ```bash
 cd frontend
 npm install
 
-# 配置环境变量
+# Copy environment template
 cp .env.local.example .env.local
-# 编辑 .env.local 填入：
-# - NEXT_PUBLIC_PACKAGE_ID: 合约包 ID
-# - NEXT_PUBLIC_BOT_API_URL: Bot API 地址
 
-npm run dev          # 开发模式
+# Edit .env.local with your values:
+# - NEXT_PUBLIC_PACKAGE_ID: The deployed contract package ID
+# - NEXT_PUBLIC_BOT_API_URL: Bot API URL (default: http://localhost:3215)
+
+npm run dev          # Start frontend (usually http://localhost:3000)
 ```
 
-## 技术栈
+### 4. Setup Workflow
 
-- **链上**: Move (Sui)
-- **Bot**: Node.js + TypeScript + Cetus Aggregator SDK
-- **前端**: Next.js + @mysten/dapp-kit-react
-- **存储**: SQLite
+1. **Connect Wallet**: Open the frontend and connect your Sui wallet
+2. **Create Vault**: Use Vault Manager to create a new Vault (this generates OwnerCap and TraderCap)
+3. **Deposit Funds**: Deposit tokens into the Vault
+4. **Transfer TraderCap**: Transfer TraderCap to the bot's address
+5. **Configure Grid**: Set price range and grid levels in Bot Control
+6. **Start Trading**: Click "Start" to begin automated grid trading
 
-## 核心特性
+### 5. Run Integration Tests
 
-- ✅ 秒级 tick 执行
-- ✅ 单并发交易（避免冲突）
-- ✅ 网格策略（可配置参数）
-- ✅ Cetus Aggregator 集成
-- ✅ 完整的事件日志
-- ✅ SQLite 状态持久化
-- ✅ HTTP API 控制
-- ✅ Web 管理面板
+```bash
+cd bot
 
-## 交易流程
+# Run all tests
+npx tsx test/run-tests.ts
 
-详细交易流程说明：[bot/README.md](./bot/README.md#完整交易流程)
+# Run individual tests
+npx tsx test/vault-tests.ts
+npx tsx test/deposit-tests.ts
+npx tsx test/permission-tests.ts
+```
 
-流程概要：
-1. **Scheduler** - 定时触发，获取 Cetus 价格
-2. **Strategy** - 网格策略判断（价格上涨→卖出，下跌→买入）
-3. **Executor** - 构建 PTB（withdraw → swap → deposit → record）
-4. **Sui 链上** - 原子化执行交易，触发 TradeEvent
+## API Endpoints
 
-## 安全设计
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/status` | GET | Get bot status |
+| `/history` | GET | Get trade history |
+| `/config` | GET/POST | Get/update grid configuration |
+| `/control` | POST | Start/stop bot (`{"command": "start" \| "stop"}`) |
+| `/logs` | GET | Get bot logs |
 
-1. **Vault 资金托管**: 资金存储在链上 Vault，Owner 控制存取
-2. **权限分离**: OwnerCap（用户）/ TraderCap（Bot）
-3. **暂停机制**: Owner 可随时暂停交易
-4. **Bot 无提现**: 合约层禁止 Bot 转出资金
+## Tech Stack
 
-## 开发计划
+- **On-Chain**: Move (Sui) - Smart contracts
+- **Bot**: Node.js + TypeScript + @mysten/sui + Cetus Aggregator SDK
+- **Frontend**: Next.js + @mysten/dapp-kit-react
+- **Storage**: SQLite
+- **Testing**: Vitest + sui move test
 
-- [x] M1: 链上合约（Vault + 权限 + 事件）
-- [x] M2: Bot 最小闭环（策略 + 执行 + 存储 + API）
-- [x] M3: 前端管理面板
-- [x] M4: 合约集成测试
-- [ ] M5: 风控加固与扩展
+## Key Features
 
-## 目录说明
+- ✅ Second-level tick execution
+- ✅ Single-concurrency transactions (prevents conflicts)
+- ✅ Configurable grid strategy parameters
+- ✅ Cetus Aggregator integration for optimal routing
+- ✅ Complete event logging on-chain
+- ✅ SQLite state persistence
+- ✅ HTTP API for external control
+- ✅ Web-based admin panel
 
-| 目录 | 说明 |
-|------|------|
-| `contracts/` | Move 智能合约源码和 TypeScript 集成测试 |
-| `bot/` | 交易机器人后端服务和测试套件 |
-| `frontend/` | Next.js 前端管理面板 |
-| `docs/` | 项目文档 |
+## Security Design
 
-## 许可证
+1. **Fund Custody**: Funds are held in the on-chain Vault, Owner controls deposits/withdrawals
+2. **Permission Separation**: OwnerCap (user) / TraderCap (bot) separation
+3. **Pause Mechanism**: Owner can pause trading at any time
+4. **Bot Cannot Withdraw**: Contract prevents bot from transferring funds out
+
+## Development Roadmap
+
+- [x] M1: On-chain contracts (Vault + permissions + events)
+- [x] M2: Bot minimum viable product (strategy + execution + storage + API)
+- [x] M3: Frontend admin panel
+- [x] M4: Contract integration tests
+- [ ] M5: Risk control enhancements
+
+## Documentation
+
+- [Architecture](./docs/ARCHITECTURE.md) - Detailed system architecture
+- [Development Guide](./docs/DEV.md) - Development workflow
+- [Mainnet Guide](./docs/MAINNET_GUIDE.md) - Mainnet deployment notes
+- [Bot README](./bot/README.md) - Bot implementation details
+- [Contracts README](./contracts/README.md) - Contract documentation
+- [Frontend README](./frontend/README.md) - Frontend documentation
+
+## License
 
 MIT

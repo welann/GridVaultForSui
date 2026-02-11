@@ -75,14 +75,14 @@ export function useBotApi() {
   const fetchStatus = useCallback(async (): Promise<BotStatus | null> => {
     try {
       const res = await fetch(`${BOT_API_URL}/status`, {
-        // 添加超时，避免长时间等待
+        // Add timeout to avoid long waiting
         signal: AbortSignal.timeout(5000),
       })
       if (!res.ok) throw new Error("Failed to fetch status")
       return await res.json()
     } catch (e) {
-      // 静默失败，避免控制台报错影响用户体验
-      // 错误会在 UI 中通过状态显示
+      // Silent fail to avoid console errors affecting UX
+      // Error will be displayed in UI via state
       return null
     }
   }, [])

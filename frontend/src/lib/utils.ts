@@ -1,9 +1,9 @@
 /**
- * 工具函数
+ * Utility functions
  */
 
 /**
- * 格式化金额显示
+ * Format amount display
  */
 export function formatAmount(amount: bigint | string, decimals: number = 9): string {
   const amountStr = amount.toString()
@@ -14,7 +14,7 @@ export function formatAmount(amount: bigint | string, decimals: number = 9): str
 }
 
 /**
- * 缩短地址显示
+ * Shorten address display
  */
 export function shortenAddress(address: string, chars: number = 6): string {
   if (address.length <= chars * 2) return address
@@ -22,21 +22,21 @@ export function shortenAddress(address: string, chars: number = 6): string {
 }
 
 /**
- * 格式化时间戳
+ * Format timestamp
  */
 export function formatTimestamp(timestamp: number): string {
-  return new Date(timestamp).toLocaleString("zh-CN")
+  return new Date(timestamp).toLocaleString("en-US")
 }
 
 /**
- * 格式化价格
+ * Format price
  */
 export function formatPrice(price: number): string {
   return price.toFixed(6)
 }
 
 /**
- * 计算网格线
+ * Compute grid lines
  */
 export function computeGridLines(
   lowerPrice: number,

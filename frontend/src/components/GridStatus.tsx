@@ -37,7 +37,7 @@ export function GridStatus() {
       setPriceAt(priceData.timestamp ?? now)
       setPriceError(null)
     } else {
-      setPriceError("价格获取失败")
+      setPriceError("Failed to fetch price")
     }
   }, [api])
 
@@ -72,17 +72,17 @@ export function GridStatus() {
   return (
     <div className="grid-status">
       <div className="card">
-        <h2>📈 网格状态</h2>
+        <h2>📈 Grid Status</h2>
 
         <div className="row">
-          <span className="label">当前价格</span>
+          <span className="label">Current Price</span>
           <span className="value">
             {currentPrice !== null ? `${formatPrice(currentPrice)} USDC/SUI` : "-"}
           </span>
         </div>
 
         <div className="row">
-          <span className="label">最近网格</span>
+          <span className="label">Nearest Grid</span>
           <span className="value">
             {nearest
               ? `${formatPrice(nearest[0])} ~ ${formatPrice(nearest[1])}`
@@ -93,29 +93,29 @@ export function GridStatus() {
         </div>
 
         <div className="row">
-          <span className="label">当前档位</span>
-          <span className="value">{status?.gridState.lastBand ?? "未初始化"}</span>
+          <span className="label">Current Band</span>
+          <span className="value">{status?.gridState.lastBand ?? "Not Initialized"}</span>
         </div>
 
         <div className="row">
-          <span className="label">交易中</span>
+          <span className="label">In Flight</span>
           <span className={`value ${status?.gridState.inFlight ? "warn" : "ok"}`}>
-            {status?.gridState.inFlight ? "是" : "否"}
+            {status?.gridState.inFlight ? "Yes" : "No"}
           </span>
         </div>
 
         <div className="row">
-          <span className="label">最后更新</span>
+          <span className="label">Last Updated</span>
           <span className="value">
             {priceAt ? formatTimestamp(priceAt) : status?.lastTick ? formatTimestamp(status.lastTick) : "-"}
           </span>
         </div>
 
         {priceError && (
-          <div className="hint">{priceError}，请检查 Bot 或网络</div>
+          <div className="hint">{priceError}, please check Bot or network</div>
         )}
         {!status && (
-          <div className="hint">Bot 未运行或无法连接</div>
+          <div className="hint">Bot not running or connection failed</div>
         )}
       </div>
 
