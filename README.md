@@ -30,6 +30,10 @@ GridVault consists of three main components working together:
 │    └─────────┘  └─────────┘  └─────────┘  └─────────┘          │
 └─────────────────────────────────────────────────────────────────┘
 ```
+![Control page](./resources/control.png)
+<video src="./resources/howitworks.mov" width="600" controls>
+  您的浏览器不支持视频标签。
+</video>
 
 ## How It Works
 
