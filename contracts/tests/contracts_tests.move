@@ -82,6 +82,382 @@ module grid_vault::grid_vault_tests {
         test_scenario::end(scenario);
     }
 
+    // ============ Trader Withdraw/Deposit Tests ============
+
+    #[test]
+    fun test_trader_withdraw_and_deposit_a() {
+        let sender = @0xA;
+        let mut scenario = test_scenario::begin(sender);
+        {
+            let ctx = test_scenario::ctx(&mut scenario);
+            let (owner_cap, trader_cap, mut vault) = grid_vault::create_for_testing<SUI, USDC>(ctx);
+
+            // Owner deposit first
+            let coin_in = coin::mint_for_testing<SUI>(1_000, ctx);
+            grid_vault::deposit_a<SUI, USDC>(&mut vault, &owner_cap, coin_in);
+            assert!(grid_vault::balance_a(&vault) == 1_000, 0);
+
+            // Trader withdraw
+            let coin_out = grid_vault::trader_withdraw_a<SUI, USDC>(&mut vault, &trader_cap, 500, ctx);
+            assert!(coin::value(&coin_out) == 500, 1);
+            assert!(grid_vault::balance_a(&vault) == 500, 2);
+
+            // Trader deposit back
+            grid_vault::trader_deposit_a<SUI, USDC>(&mut vault, &trader_cap, coin_out);
+            assert!(grid_vault::balance_a(&vault) == 1_000, 3);
+
+            transfer::public_transfer(owner_cap, sender);
+            transfer::public_transfer(trader_cap, sender);
+            transfer::public_transfer(vault, sender);
+        };
+        test_scenario::end(scenario);
+    }
+
+    #[test]
+    fun test_trader_withdraw_and_deposit_b() {
+        let sender = @0xA;
+        let mut scenario = test_scenario::begin(sender);
+        {
+            let ctx = test_scenario::ctx(&mut scenario);
+            let (owner_cap, trader_cap, mut vault) = grid_vault::create_for_testing<SUI, USDC>(ctx);
+
+            // Owner deposit first
+            let coin_in = coin::mint_for_testing<USDC>(5_000, ctx);
+            grid_vault::deposit_b<SUI, USDC>(&mut vault, &owner_cap, coin_in);
+            assert!(grid_vault::balance_b(&vault) == 5_000, 0);
+
+            // Trader withdraw
+            let coin_out = grid_vault::trader_withdraw_b<SUI, USDC>(&mut vault, &trader_cap, 2_000, ctx);
+            assert!(coin::value(&coin_out) == 2_000, 1);
+            assert!(grid_vault::balance_b(&vault) == 3_000, 2);
+
+            // Trader deposit back
+            grid_vault::trader_deposit_b<SUI, USDC>(&mut vault, &trader_cap, coin_out);
+            assert!(grid_vault::balance_b(&vault) == 5_000, 3);
+
+            transfer::public_transfer(owner_cap, sender);
+            transfer::public_transfer(trader_cap, sender);
+            transfer::public_transfer(vault, sender);
+        };
+        test_scenario::end(scenario);
+    }
+
+    // EPaused (1) - Trader cannot withdraw when paused
+    #[test, expected_failure(location = ::grid_vault::grid_vault, abort_code = 1)]
+    fun test_trader_withdraw_a_fails_when_paused() {
+        let sender = @0xA;
+        let mut scenario = test_scenario::begin(sender);
+        {
+            let ctx = test_scenario::ctx(&mut scenario);
+            let (owner_cap, trader_cap, mut vault) = grid_vault::create_for_testing<SUI, USDC>(ctx);
+
+            // Owner deposit and pause
+            let coin_in = coin::mint_for_testing<SUI>(1_000, ctx);
+            grid_vault::deposit_a<SUI, USDC>(&mut vault, &owner_cap, coin_in);
+            grid_vault::set_paused<SUI, USDC>(&mut vault, &owner_cap, true);
+
+            // Trader withdraw should fail with EPaused
+            let coin_out = grid_vault::trader_withdraw_a<SUI, USDC>(&mut vault, &trader_cap, 500, ctx);
+
+            transfer::public_transfer(coin_out, sender);
+            transfer::public_transfer(owner_cap, sender);
+            transfer::public_transfer(trader_cap, sender);
+            transfer::public_transfer(vault, sender);
+        };
+        test_scenario::end(scenario);
+    }
+
+    // EPaused (1) - Trader cannot withdraw B when paused
+    #[test, expected_failure(location = ::grid_vault::grid_vault, abort_code = 1)]
+    fun test_trader_withdraw_b_fails_when_paused() {
+        let sender = @0xA;
+        let mut scenario = test_scenario::begin(sender);
+        {
+            let ctx = test_scenario::ctx(&mut scenario);
+            let (owner_cap, trader_cap, mut vault) = grid_vault::create_for_testing<SUI, USDC>(ctx);
+
+            // Owner deposit and pause
+            let coin_in = coin::mint_for_testing<USDC>(5_000, ctx);
+            grid_vault::deposit_b<SUI, USDC>(&mut vault, &owner_cap, coin_in);
+            grid_vault::set_paused<SUI, USDC>(&mut vault, &owner_cap, true);
+
+            // Trader withdraw should fail with EPaused
+            let coin_out = grid_vault::trader_withdraw_b<SUI, USDC>(&mut vault, &trader_cap, 1_000, ctx);
+
+            transfer::public_transfer(coin_out, sender);
+            transfer::public_transfer(owner_cap, sender);
+            transfer::public_transfer(trader_cap, sender);
+            transfer::public_transfer(vault, sender);
+        };
+        test_scenario::end(scenario);
+    }
+
+    // EWrongCap (0) - Wrong trader_cap for withdraw_a
+    #[test, expected_failure(location = ::grid_vault::grid_vault, abort_code = 0)]
+    fun test_trader_withdraw_a_wrong_cap() {
+        let sender = @0xA;
+        let mut scenario = test_scenario::begin(sender);
+        {
+            let ctx = test_scenario::ctx(&mut scenario);
+            let (owner_cap_1, trader_cap_1, mut vault_1) = grid_vault::create_for_testing<SUI, USDC>(ctx);
+            let (owner_cap_2, trader_cap_2, vault_2) = grid_vault::create_for_testing<SUI, USDC>(ctx);
+
+            // Owner deposit
+            let coin_in = coin::mint_for_testing<SUI>(1_000, ctx);
+            grid_vault::deposit_a<SUI, USDC>(&mut vault_1, &owner_cap_1, coin_in);
+
+            // Try withdraw with wrong trader_cap
+            let coin_out = grid_vault::trader_withdraw_a<SUI, USDC>(&mut vault_1, &trader_cap_2, 500, ctx);
+
+            transfer::public_transfer(coin_out, sender);
+            transfer::public_transfer(owner_cap_1, sender);
+            transfer::public_transfer(trader_cap_1, sender);
+            transfer::public_transfer(vault_1, sender);
+            transfer::public_transfer(owner_cap_2, sender);
+            transfer::public_transfer(trader_cap_2, sender);
+            transfer::public_transfer(vault_2, sender);
+        };
+        test_scenario::end(scenario);
+    }
+
+    // EWrongCap (0) - Wrong trader_cap for withdraw_b
+    #[test, expected_failure(location = ::grid_vault::grid_vault, abort_code = 0)]
+    fun test_trader_withdraw_b_wrong_cap() {
+        let sender = @0xA;
+        let mut scenario = test_scenario::begin(sender);
+        {
+            let ctx = test_scenario::ctx(&mut scenario);
+            let (owner_cap_1, trader_cap_1, mut vault_1) = grid_vault::create_for_testing<SUI, USDC>(ctx);
+            let (owner_cap_2, trader_cap_2, vault_2) = grid_vault::create_for_testing<SUI, USDC>(ctx);
+
+            // Owner deposit
+            let coin_in = coin::mint_for_testing<USDC>(5_000, ctx);
+            grid_vault::deposit_b<SUI, USDC>(&mut vault_1, &owner_cap_1, coin_in);
+
+            // Try withdraw with wrong trader_cap
+            let coin_out = grid_vault::trader_withdraw_b<SUI, USDC>(&mut vault_1, &trader_cap_2, 1_000, ctx);
+
+            transfer::public_transfer(coin_out, sender);
+            transfer::public_transfer(owner_cap_1, sender);
+            transfer::public_transfer(trader_cap_1, sender);
+            transfer::public_transfer(vault_1, sender);
+            transfer::public_transfer(owner_cap_2, sender);
+            transfer::public_transfer(trader_cap_2, sender);
+            transfer::public_transfer(vault_2, sender);
+        };
+        test_scenario::end(scenario);
+    }
+
+    // EInsufficientBalance (4) - Trader withdraw_a with insufficient balance
+    #[test, expected_failure(location = ::grid_vault::grid_vault, abort_code = 4)]
+    fun test_trader_withdraw_a_insufficient_balance() {
+        let sender = @0xA;
+        let mut scenario = test_scenario::begin(sender);
+        {
+            let ctx = test_scenario::ctx(&mut scenario);
+            let (owner_cap, trader_cap, mut vault) = grid_vault::create_for_testing<SUI, USDC>(ctx);
+
+            // No deposit, try withdraw
+            let coin_out = grid_vault::trader_withdraw_a<SUI, USDC>(&mut vault, &trader_cap, 100, ctx);
+
+            transfer::public_transfer(coin_out, sender);
+            transfer::public_transfer(owner_cap, sender);
+            transfer::public_transfer(trader_cap, sender);
+            transfer::public_transfer(vault, sender);
+        };
+        test_scenario::end(scenario);
+    }
+
+    // EInsufficientBalance (4) - Trader withdraw_b with insufficient balance
+    #[test, expected_failure(location = ::grid_vault::grid_vault, abort_code = 4)]
+    fun test_trader_withdraw_b_insufficient_balance() {
+        let sender = @0xA;
+        let mut scenario = test_scenario::begin(sender);
+        {
+            let ctx = test_scenario::ctx(&mut scenario);
+            let (owner_cap, trader_cap, mut vault) = grid_vault::create_for_testing<SUI, USDC>(ctx);
+
+            // No deposit, try withdraw
+            let coin_out = grid_vault::trader_withdraw_b<SUI, USDC>(&mut vault, &trader_cap, 100, ctx);
+
+            transfer::public_transfer(coin_out, sender);
+            transfer::public_transfer(owner_cap, sender);
+            transfer::public_transfer(trader_cap, sender);
+            transfer::public_transfer(vault, sender);
+        };
+        test_scenario::end(scenario);
+    }
+
+    // EZeroAmount (3) - Trader withdraw_a with zero amount
+    #[test, expected_failure(location = ::grid_vault::grid_vault, abort_code = 3)]
+    fun test_trader_withdraw_a_zero_amount() {
+        let sender = @0xA;
+        let mut scenario = test_scenario::begin(sender);
+        {
+            let ctx = test_scenario::ctx(&mut scenario);
+            let (owner_cap, trader_cap, mut vault) = grid_vault::create_for_testing<SUI, USDC>(ctx);
+
+            // Owner deposit
+            let coin_in = coin::mint_for_testing<SUI>(1_000, ctx);
+            grid_vault::deposit_a<SUI, USDC>(&mut vault, &owner_cap, coin_in);
+
+            // Try withdraw zero
+            let coin_out = grid_vault::trader_withdraw_a<SUI, USDC>(&mut vault, &trader_cap, 0, ctx);
+
+            transfer::public_transfer(coin_out, sender);
+            transfer::public_transfer(owner_cap, sender);
+            transfer::public_transfer(trader_cap, sender);
+            transfer::public_transfer(vault, sender);
+        };
+        test_scenario::end(scenario);
+    }
+
+    // EZeroAmount (3) - Trader withdraw_b with zero amount
+    #[test, expected_failure(location = ::grid_vault::grid_vault, abort_code = 3)]
+    fun test_trader_withdraw_b_zero_amount() {
+        let sender = @0xA;
+        let mut scenario = test_scenario::begin(sender);
+        {
+            let ctx = test_scenario::ctx(&mut scenario);
+            let (owner_cap, trader_cap, mut vault) = grid_vault::create_for_testing<SUI, USDC>(ctx);
+
+            // Owner deposit
+            let coin_in = coin::mint_for_testing<USDC>(5_000, ctx);
+            grid_vault::deposit_b<SUI, USDC>(&mut vault, &owner_cap, coin_in);
+
+            // Try withdraw zero
+            let coin_out = grid_vault::trader_withdraw_b<SUI, USDC>(&mut vault, &trader_cap, 0, ctx);
+
+            transfer::public_transfer(coin_out, sender);
+            transfer::public_transfer(owner_cap, sender);
+            transfer::public_transfer(trader_cap, sender);
+            transfer::public_transfer(vault, sender);
+        };
+        test_scenario::end(scenario);
+    }
+
+    // Test trader deposit with zero value coin (should work, just no event)
+    #[test]
+    fun test_trader_deposit_a_zero_coin() {
+        let sender = @0xA;
+        let mut scenario = test_scenario::begin(sender);
+        {
+            let ctx = test_scenario::ctx(&mut scenario);
+            let (owner_cap, trader_cap, mut vault) = grid_vault::create_for_testing<SUI, USDC>(ctx);
+
+            // Create zero value coin
+            let zero_coin = coin::mint_for_testing<SUI>(0, ctx);
+            
+            // Should not fail
+            grid_vault::trader_deposit_a<SUI, USDC>(&mut vault, &trader_cap, zero_coin);
+            
+            assert!(grid_vault::balance_a(&vault) == 0, 0);
+
+            transfer::public_transfer(owner_cap, sender);
+            transfer::public_transfer(trader_cap, sender);
+            transfer::public_transfer(vault, sender);
+        };
+        test_scenario::end(scenario);
+    }
+
+    // ============ Swap Record Function Tests ============
+
+    // Test trader_swap_a_to_b records the trade (but doesn't actually swap)
+    #[test]
+    fun test_trader_swap_a_to_b_records_trade() {
+        let sender = @0xA;
+        let mut scenario = test_scenario::begin(sender);
+        {
+            let ctx = test_scenario::ctx(&mut scenario);
+            let (owner_cap, trader_cap, mut vault) = grid_vault::create_for_testing<SUI, USDC>(ctx);
+
+            // Owner deposit
+            let coin_in = coin::mint_for_testing<SUI>(1_000, ctx);
+            grid_vault::deposit_a<SUI, USDC>(&mut vault, &owner_cap, coin_in);
+            assert!(grid_vault::balance_a(&vault) == 1_000, 0);
+
+            // Call swap record function (this just records, doesn't change balances)
+            // In actual PTB, this would be called after: withdraw_a -> cetus_swap -> deposit_b
+            let amount_out = grid_vault::trader_swap_a_to_b<SUI, USDC>(&mut vault, &trader_cap, 500, 450);
+            
+            // The function returns min_out as the expected output
+            assert!(amount_out == 450, 1);
+            
+            // Balance should remain unchanged (function only records)
+            assert!(grid_vault::balance_a(&vault) == 1_000, 2);
+
+            transfer::public_transfer(owner_cap, sender);
+            transfer::public_transfer(trader_cap, sender);
+            transfer::public_transfer(vault, sender);
+        };
+        test_scenario::end(scenario);
+    }
+
+    // Test trader_swap_b_to_a records the trade
+    #[test]
+    fun test_trader_swap_b_to_a_records_trade() {
+        let sender = @0xA;
+        let mut scenario = test_scenario::begin(sender);
+        {
+            let ctx = test_scenario::ctx(&mut scenario);
+            let (owner_cap, trader_cap, mut vault) = grid_vault::create_for_testing<SUI, USDC>(ctx);
+
+            // Owner deposit
+            let coin_in = coin::mint_for_testing<USDC>(5_000, ctx);
+            grid_vault::deposit_b<SUI, USDC>(&mut vault, &owner_cap, coin_in);
+            assert!(grid_vault::balance_b(&vault) == 5_000, 0);
+
+            // Call swap record function
+            let amount_out = grid_vault::trader_swap_b_to_a<SUI, USDC>(&mut vault, &trader_cap, 2_000, 1800);
+            
+            assert!(amount_out == 1800, 1);
+            assert!(grid_vault::balance_b(&vault) == 5_000, 2);
+
+            transfer::public_transfer(owner_cap, sender);
+            transfer::public_transfer(trader_cap, sender);
+            transfer::public_transfer(vault, sender);
+        };
+        test_scenario::end(scenario);
+    }
+
+    // EZeroAmount (3) - swap_a_to_b with zero amount
+    #[test, expected_failure(location = ::grid_vault::grid_vault, abort_code = 3)]
+    fun test_trader_swap_a_to_b_zero_amount() {
+        let sender = @0xA;
+        let mut scenario = test_scenario::begin(sender);
+        {
+            let ctx = test_scenario::ctx(&mut scenario);
+            let (owner_cap, trader_cap, mut vault) = grid_vault::create_for_testing<SUI, USDC>(ctx);
+
+            grid_vault::trader_swap_a_to_b<SUI, USDC>(&mut vault, &trader_cap, 0, 0);
+
+            transfer::public_transfer(owner_cap, sender);
+            transfer::public_transfer(trader_cap, sender);
+            transfer::public_transfer(vault, sender);
+        };
+        test_scenario::end(scenario);
+    }
+
+    // EZeroAmount (3) - swap_b_to_a with zero amount
+    #[test, expected_failure(location = ::grid_vault::grid_vault, abort_code = 3)]
+    fun test_trader_swap_b_to_a_zero_amount() {
+        let sender = @0xA;
+        let mut scenario = test_scenario::begin(sender);
+        {
+            let ctx = test_scenario::ctx(&mut scenario);
+            let (owner_cap, trader_cap, mut vault) = grid_vault::create_for_testing<SUI, USDC>(ctx);
+
+            grid_vault::trader_swap_b_to_a<SUI, USDC>(&mut vault, &trader_cap, 0, 0);
+
+            transfer::public_transfer(owner_cap, sender);
+            transfer::public_transfer(trader_cap, sender);
+            transfer::public_transfer(vault, sender);
+        };
+        test_scenario::end(scenario);
+    }
+
+    // ============ Original Tests ============
+
     // EWrongCap
     #[test, expected_failure(location = ::grid_vault::grid_vault, abort_code = 0)]
     fun test_wrong_owner_cap_rejected() {
@@ -257,58 +633,6 @@ module grid_vault::grid_vault_tests {
             transfer::public_transfer(owner_cap, sender);
             transfer::public_transfer(trader_cap, sender);
             transfer::public_transfer(vault, sender);
-        };
-        test_scenario::end(scenario);
-    }
-
-    // ENotImplemented (2)
-    #[test, expected_failure(location = ::grid_vault::grid_vault, abort_code = 2)]
-    fun test_swap_a_to_b_not_implemented() {
-        let sender = @0xA;
-        let mut scenario = test_scenario::begin(sender);
-        {
-            let ctx = test_scenario::ctx(&mut scenario);
-            let (owner_cap, trader_cap, mut vault) = grid_vault::create_for_testing<SUI, USDC>(ctx);
-
-            // Deposit some funds first
-            let coin_in = coin::mint_for_testing<SUI>(1000, ctx);
-            grid_vault::deposit_a<SUI, USDC>(&mut vault, &owner_cap, coin_in);
-
-            // Try to swap (should abort with ENotImplemented)
-            grid_vault::vault_swap_a_to_b<SUI, USDC>(&mut vault, &trader_cap, 100, 90, vector::empty());
-
-            transfer::public_transfer(owner_cap, sender);
-            transfer::public_transfer(trader_cap, sender);
-            transfer::public_transfer(vault, sender);
-        };
-        test_scenario::end(scenario);
-    }
-
-    // Test that trader cannot withdraw (security check)
-    #[test, expected_failure(location = ::grid_vault::grid_vault, abort_code = 0)]
-    fun test_trader_cannot_withdraw() {
-        let sender = @0xA;
-        let mut scenario = test_scenario::begin(sender);
-        {
-            let ctx = test_scenario::ctx(&mut scenario);
-            let (owner_cap_1, trader_cap_1, mut vault_1) = grid_vault::create_for_testing<SUI, USDC>(ctx);
-            let (owner_cap_2, trader_cap_2, vault_2) = grid_vault::create_for_testing<SUI, USDC>(ctx);
-
-            // Owner deposits
-            let coin_in = coin::mint_for_testing<SUI>(1000, ctx);
-            grid_vault::deposit_a<SUI, USDC>(&mut vault_1, &owner_cap_1, coin_in);
-
-            // Trader tries to withdraw using wrong owner's cap (should fail with EWrongCap)
-            // Using owner_cap_2 to trigger EWrongCap (vault_id mismatch)
-            let coin_out = grid_vault::withdraw_a<SUI, USDC>(&mut vault_1, &owner_cap_2, 100, ctx);
-
-            transfer::public_transfer(coin_out, sender);
-            transfer::public_transfer(owner_cap_1, sender);
-            transfer::public_transfer(trader_cap_1, sender);
-            transfer::public_transfer(vault_1, sender);
-            transfer::public_transfer(owner_cap_2, sender);
-            transfer::public_transfer(trader_cap_2, sender);
-            transfer::public_transfer(vault_2, sender);
         };
         test_scenario::end(scenario);
     }
