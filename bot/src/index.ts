@@ -11,7 +11,7 @@ import { Executor } from "./executor/executor.js"
 import { Storage } from "./storage/storage.js"
 import { ApiServer, type ApiDependencies } from "./api/server.js"
 import { ConfigManager } from "./config/config.js"
-import type { BotStatus, GridState, GridConfig } from "./types/index.js"
+import type { BotStatus, GridState, GridConfig, QuoteRecord } from "./types/index.js"
 
 // ============ 全局状态 ============
 
@@ -90,6 +90,10 @@ async function init(): Promise<void> {
   quoteService = new QuoteService({
     rpcUrl: executorConfig.rpcUrl,
     network: executorConfig.network === "mainnet" ? "mainnet" : "testnet",
+    onQuote: async (record) => {
+      await storage.saveQuote(record)
+      await logQuote(record)
+    },
   })
   console.log("✅ Quote service initialized")
   
@@ -270,6 +274,90 @@ async function persistState(): Promise<void> {
     }
   } catch (error) {
     console.error("[persistState] Failed to persist state:", error)
+  }
+}
+
+const DEFAULT_DECIMALS = 9
+const STABLE_DECIMALS = 6
+
+function getCoinDecimals(coinType: string): number {
+  const upper = coinType.toUpperCase()
+  if (upper.includes("::SUI::SUI")) return 9
+  if (upper.includes("USDC") || upper.includes("USDT")) return STABLE_DECIMALS
+  return DEFAULT_DECIMALS
+}
+
+function formatUnits(amount: string, decimals: number): string {
+  const negative = amount.startsWith("-")
+  const raw = negative ? amount.slice(1) : amount
+  const padded = raw.padStart(decimals + 1, "0")
+  const integer = padded.slice(0, -decimals) || "0"
+  const fraction = padded.slice(-decimals).replace(/0+$/, "")
+  const result = fraction ? `${integer}.${fraction}` : integer
+  return negative ? `-${result}` : result
+}
+
+function formatFixed(value: bigint, decimals: number): string {
+  const raw = value.toString().padStart(decimals + 1, "0")
+  const integer = raw.slice(0, -decimals) || "0"
+  const fraction = raw.slice(-decimals).replace(/0+$/, "")
+  return fraction ? `${integer}.${fraction}` : integer
+}
+
+function formatPriceFromAmounts(
+  amountIn: string,
+  amountOut: string,
+  decimalsIn: number,
+  decimalsOut: number,
+  displayDecimals: number = 6
+): string {
+  try {
+    const inBn = BigInt(amountIn)
+    const outBn = BigInt(amountOut)
+    if (inBn === BigInt(0) || outBn === BigInt(0)) return "0"
+    const scale = BigInt(10) ** BigInt(displayDecimals)
+    const numerator = outBn * (BigInt(10) ** BigInt(decimalsIn)) * scale
+    const denominator = inBn * (BigInt(10) ** BigInt(decimalsOut))
+    const priceScaled = numerator / denominator
+    return formatFixed(priceScaled, displayDecimals)
+  } catch {
+    return "0"
+  }
+}
+
+async function logQuote(record: QuoteRecord): Promise<void> {
+  const decimalsIn = getCoinDecimals(record.fromCoin)
+  const decimalsOut = getCoinDecimals(record.targetCoin)
+  const amountInFmt = formatUnits(record.amountIn, decimalsIn)
+  const amountOutFmt = record.status === "success"
+    ? formatUnits(record.amountOut, decimalsOut)
+    : "-"
+  const minOutFmt = record.status === "success"
+    ? formatUnits(record.minOut, decimalsOut)
+    : "-"
+  const priceFmt = record.status === "success"
+    ? formatPriceFromAmounts(record.amountIn, record.amountOut, decimalsIn, decimalsOut, 6)
+    : "-"
+  const action = record.side === "A2B" ? "SELL" : "BUY"
+
+  if (record.status === "success") {
+    await logInfo(
+      `Quote ${record.side}: in ${amountInFmt} -> out ${amountOutFmt} (min ${minOutFmt}) price ${priceFmt}`,
+      {
+        price: priceFmt,
+        action,
+        amountIn: amountInFmt,
+        estimatedOut: amountOutFmt,
+      }
+    )
+  } else {
+    await logWarning(
+      `Quote ${record.side} failed: ${record.error ?? "Unknown error"}`,
+      {
+        action,
+        amountIn: amountInFmt,
+      }
+    )
   }
 }
 

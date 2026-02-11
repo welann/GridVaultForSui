@@ -9,7 +9,7 @@
 
 import Database from "better-sqlite3"
 import type { Database as DatabaseType } from "better-sqlite3"
-import type { GridState, GridConfig, TradeRecord, PersistedState } from "../types/index.js"
+import type { GridState, GridConfig, TradeRecord, PersistedState, QuoteRecord } from "../types/index.js"
 
 export interface StorageConfig {
   databasePath: string
@@ -81,6 +81,27 @@ export class Storage {
         created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000)
       )
     `)
+
+    // 询价记录表
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS quotes (
+        id TEXT PRIMARY KEY,
+        timestamp INTEGER NOT NULL,
+        side TEXT NOT NULL,
+        from_coin TEXT NOT NULL,
+        target_coin TEXT NOT NULL,
+        amount_in TEXT NOT NULL,
+        amount_out TEXT NOT NULL,
+        min_out TEXT NOT NULL,
+        price REAL,
+        price_impact REAL,
+        by_amount_in INTEGER NOT NULL,
+        quote_id TEXT,
+        status TEXT NOT NULL,
+        error TEXT,
+        created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000)
+      )
+    `)
     
     // 日志表
     this.db.exec(`
@@ -97,6 +118,8 @@ export class Storage {
     this.db.exec(`
       CREATE INDEX IF NOT EXISTS idx_trades_digest ON trades(digest);
       CREATE INDEX IF NOT EXISTS idx_trades_timestamp ON trades(timestamp);
+      CREATE INDEX IF NOT EXISTS idx_quotes_timestamp ON quotes(timestamp);
+      CREATE INDEX IF NOT EXISTS idx_quotes_side ON quotes(side);
       CREATE INDEX IF NOT EXISTS idx_logs_timestamp ON logs(timestamp);
     `)
   }
@@ -186,6 +209,39 @@ export class Storage {
       record.error ?? null
     )
   }
+
+  /**
+   * 保存询价记录
+   */
+  async saveQuote(record: QuoteRecord): Promise<void> {
+    if (!this.db) throw new Error("Database not initialized")
+
+    const stmt = this.db.prepare(`
+      INSERT INTO quotes (
+        id, timestamp, side, from_coin, target_coin,
+        amount_in, amount_out, min_out, price, price_impact,
+        by_amount_in, quote_id, status, error
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `)
+
+    stmt.run(
+      record.id,
+      record.timestamp,
+      record.side,
+      record.fromCoin,
+      record.targetCoin,
+      record.amountIn,
+      record.amountOut,
+      record.minOut,
+      record.price ?? null,
+      record.priceImpact ?? null,
+      record.byAmountIn ? 1 : 0,
+      record.quoteId ?? null,
+      record.status,
+      record.error ?? null
+    )
+  }
   
   /**
    * 获取交易历史
@@ -244,6 +300,84 @@ export class Storage {
       amountIn: row.amount_in,
       amountOut: row.amount_out,
       price: row.price,
+      status: row.status,
+      error: row.error,
+    }))
+  }
+
+  /**
+   * 获取询价记录
+   */
+  async getQuotes(options?: {
+    limit?: number
+    offset?: number
+    startTime?: number
+    endTime?: number
+    side?: "A2B" | "B2A"
+  }): Promise<QuoteRecord[]> {
+    if (!this.db) throw new Error("Database not initialized")
+
+    let sql = `SELECT * FROM quotes WHERE 1=1`
+    const params: any[] = []
+
+    if (options?.side) {
+      sql += ` AND side = ?`
+      params.push(options.side)
+    }
+
+    if (options?.startTime) {
+      sql += ` AND timestamp >= ?`
+      params.push(options.startTime)
+    }
+
+    if (options?.endTime) {
+      sql += ` AND timestamp <= ?`
+      params.push(options.endTime)
+    }
+
+    sql += ` ORDER BY timestamp DESC`
+
+    if (options?.limit) {
+      sql += ` LIMIT ?`
+      params.push(options.limit)
+    }
+
+    if (options?.offset) {
+      sql += ` OFFSET ?`
+      params.push(options.offset)
+    }
+
+    const stmt = this.db.prepare(sql)
+    const rows = stmt.all(...params) as Array<{
+      id: string
+      timestamp: number
+      side: "A2B" | "B2A"
+      from_coin: string
+      target_coin: string
+      amount_in: string
+      amount_out: string
+      min_out: string
+      price: number | null
+      price_impact: number | null
+      by_amount_in: number
+      quote_id: string | null
+      status: "success" | "failure"
+      error?: string
+    }>
+
+    return rows.map(row => ({
+      id: row.id,
+      timestamp: row.timestamp,
+      side: row.side,
+      fromCoin: row.from_coin,
+      targetCoin: row.target_coin,
+      amountIn: row.amount_in,
+      amountOut: row.amount_out,
+      minOut: row.min_out,
+      price: row.price,
+      priceImpact: row.price_impact,
+      byAmountIn: row.by_amount_in === 1,
+      quoteId: row.quote_id ?? undefined,
       status: row.status,
       error: row.error,
     }))

@@ -6,7 +6,8 @@
 
 import { AggregatorClient, Env } from "@cetusprotocol/aggregator-sdk"
 import { SuiClient } from "@mysten/sui/client"
-import type { QuoteResult, RouterData, GridConfig } from "../types/index.js"
+import BN from "bn.js"
+import type { QuoteRecord, QuoteResult } from "../types/index.js"
 
 export interface QuoteServiceConfig {
   rpcUrl: string
@@ -14,6 +15,8 @@ export interface QuoteServiceConfig {
   aggregatorApiUrl?: string
   /** 链类型 */
   network: "mainnet" | "testnet"
+  /** 询价结果回调（用于落库或日志） */
+  onQuote?: (record: QuoteRecord) => void | Promise<void>
 }
 
 /**
@@ -38,11 +41,135 @@ export class QuoteService {
    * 获取默认 Aggregator API URL
    */
   private getDefaultAggregatorUrl(network: string): string {
-    // Cetus Aggregator API 端点
+    // Cetus Aggregator API v3 端点（文档推荐使用 /router_v3/find_routes）
     if (network === "mainnet") {
-      return "https://api-sui.cetus.zone/router"
+      return "https://api-sui.cetus.zone/router_v3/find_routes"
     }
-    return "https://api-sui-testnet.cetus.zone/router"
+    return "https://api-sui-testnet.cetus.zone/router_v3/find_routes"
+  }
+
+  /**
+   * 统一的询价入口（固定输入金额）
+   */
+  private async getQuote(
+    side: "A2B" | "B2A",
+    from: string,
+    target: string,
+    amountIn: bigint,
+    slippageBps: number
+  ): Promise<QuoteResult | null> {
+    const timestamp = Date.now()
+    const baseRecord: Omit<QuoteRecord, "amountOut" | "minOut" | "price" | "priceImpact" | "status"> = {
+      id: this.createQuoteId(timestamp),
+      timestamp,
+      side,
+      fromCoin: from,
+      targetCoin: target,
+      amountIn: amountIn.toString(),
+      byAmountIn: true,
+      quoteId: undefined,
+    }
+
+    try {
+      const amount = new BN(amountIn.toString())
+
+      // 调用 Cetus Aggregator 查找最优路由
+      const routerData = await this.aggregator.findRouters({
+        from,
+        target,
+        amount,
+        byAmountIn: true,
+      })
+
+      if (!routerData) {
+        console.error(`[getQuote:${side}] findRouters returned null`)
+        await this.recordQuote({
+          ...baseRecord,
+          amountOut: "0",
+          minOut: "0",
+          price: null,
+          priceImpact: null,
+          status: "failure",
+          error: "findRouters returned null",
+        })
+        return null
+      }
+
+      if (routerData.error) {
+        console.error(`[getQuote:${side}] Router error:`, routerData.error)
+        await this.recordQuote({
+          ...baseRecord,
+          amountOut: "0",
+          minOut: "0",
+          price: null,
+          priceImpact: null,
+          status: "failure",
+          error: routerData.error.msg ?? "Router error",
+        })
+        return null
+      }
+
+      if (routerData.insufficientLiquidity) {
+        console.error(`[getQuote:${side}] Insufficient liquidity`)
+        await this.recordQuote({
+          ...baseRecord,
+          amountOut: "0",
+          minOut: "0",
+          price: null,
+          priceImpact: null,
+          status: "failure",
+          error: "Insufficient liquidity",
+        })
+        return null
+      }
+
+      const estimatedOut = BigInt(routerData.amountOut.toString())
+      const minOut = this.computeMinOut(estimatedOut, slippageBps)
+
+      // 价格 = 输出 / 输入（统一口径）
+      const price = this.computePrice(
+        routerData.amountIn.toString(),
+        routerData.amountOut.toString()
+      )
+
+      await this.recordQuote({
+        ...baseRecord,
+        amountOut: routerData.amountOut.toString(),
+        minOut: minOut.toString(),
+        price,
+        priceImpact: typeof routerData.deviationRatio === "number" ? routerData.deviationRatio : null,
+        quoteId: routerData.quoteID,
+        status: "success",
+      })
+
+      return {
+        side,
+        amountIn,
+        estimatedOut,
+        minOut,
+        routerData: {
+          route: routerData,
+          estimatedOut,
+          priceImpact: typeof routerData.deviationRatio === "number" ? routerData.deviationRatio : 0,
+        },
+        price,
+      }
+    } catch (error) {
+      console.error(`[getQuote:${side}] Failed to get quote:`, error)
+      console.error("  from:", from)
+      console.error("  target:", target)
+      console.error("  amountIn:", amountIn.toString())
+      await this.recordQuote({
+        ...baseRecord,
+        amountOut: "0",
+        minOut: "0",
+        price: null,
+        priceImpact: null,
+        status: "failure",
+        error: error instanceof Error ? error.message : String(error),
+      })
+      return null
+    }
   }
   
   /**
@@ -56,44 +183,7 @@ export class QuoteService {
     amountIn: bigint,
     slippageBps: number
   ): Promise<QuoteResult | null> {
-    try {
-      // 调用 Cetus Aggregator 查找最优路由
-      const routers = await this.aggregator.findRouters({
-        from: coinTypeA,
-        target: coinTypeB,
-        amount: amountIn.toString(),
-        byAmountIn: true,
-      })
-      
-      if (!routers) {
-        return null
-      }
-      
-      const bestRoute = routers
-      const estimatedOut = BigInt(bestRoute.amountOut.toString())
-      
-      // 计算最小输出（考虑滑点）
-      const minOut = this.computeMinOut(estimatedOut, slippageBps)
-      
-      // 计算价格（estimatedOut / amountIn）
-      const price = Number(estimatedOut) / Number(amountIn)
-      
-      return {
-        side: "A2B",
-        amountIn,
-        estimatedOut,
-        minOut,
-        routerData: {
-          route: bestRoute,
-          estimatedOut,
-          priceImpact: 0, // RouterDataV3 没有直接提供 priceImpact
-        },
-        price,
-      }
-    } catch (error) {
-      console.error("Failed to get quote A2B:", error)
-      return null
-    }
+    return this.getQuote("A2B", coinTypeA, coinTypeB, amountIn, slippageBps)
   }
   
   /**
@@ -107,44 +197,7 @@ export class QuoteService {
     amountIn: bigint,
     slippageBps: number
   ): Promise<QuoteResult | null> {
-    try {
-      // 调用 Cetus Aggregator 查找最优路由
-      const routers = await this.aggregator.findRouters({
-        from: coinTypeB,
-        target: coinTypeA,
-        amount: amountIn.toString(),
-        byAmountIn: true,
-      })
-      
-      if (!routers) {
-        return null
-      }
-      
-      const bestRoute = routers
-      const estimatedOut = BigInt(bestRoute.amountOut.toString())
-      
-      // 计算最小输出（考虑滑点）
-      const minOut = this.computeMinOut(estimatedOut, slippageBps)
-      
-      // 计算价格（amountIn / estimatedOut）
-      const price = Number(amountIn) / Number(estimatedOut)
-      
-      return {
-        side: "B2A",
-        amountIn,
-        estimatedOut,
-        minOut,
-        routerData: {
-          route: bestRoute,
-          estimatedOut,
-          priceImpact: 0, // RouterDataV3 没有直接提供 priceImpact
-        },
-        price,
-      }
-    } catch (error) {
-      console.error("Failed to get quote B2A:", error)
-      return null
-    }
+    return this.getQuote("B2A", coinTypeB, coinTypeA, amountIn, slippageBps)
   }
   
   /**
@@ -167,7 +220,7 @@ export class QuoteService {
       // 如果 A->B 失败，尝试 B->A 并取倒数
       const quoteB2A = await this.getQuoteB2A(coinTypeA, coinTypeB, testAmount, 100)
       if (quoteB2A) {
-        return 1 / quoteB2A.price
+        return quoteB2A.price === 0 ? null : 1 / quoteB2A.price
       }
       
       return null
@@ -183,6 +236,31 @@ export class QuoteService {
   private computeMinOut(estimatedOut: bigint, slippageBps: number): bigint {
     const multiplier = BigInt(10000 - slippageBps)
     return (estimatedOut * multiplier) / BigInt(10000)
+  }
+
+  /**
+   * 计算价格（输出/输入）
+   */
+  private computePrice(amountIn: string, amountOut: string): number {
+    const inNum = Number(amountIn)
+    const outNum = Number(amountOut)
+    if (!Number.isFinite(inNum) || !Number.isFinite(outNum) || inNum === 0) {
+      return 0
+    }
+    return outNum / inNum
+  }
+
+  private async recordQuote(record: QuoteRecord): Promise<void> {
+    if (!this.config.onQuote) return
+    try {
+      await this.config.onQuote(record)
+    } catch (error) {
+      console.error("[QuoteService] Failed to record quote:", error)
+    }
+  }
+
+  private createQuoteId(timestamp: number): string {
+    return `${timestamp}-${Math.random().toString(36).slice(2, 10)}`
   }
   
   /**

@@ -71,6 +71,23 @@ export interface QuoteResult {
   price: number
 }
 
+export interface QuoteRecord {
+  id: string
+  timestamp: number
+  side: "A2B" | "B2A"
+  fromCoin: string
+  targetCoin: string
+  amountIn: string
+  amountOut: string
+  minOut: string
+  price: number | null
+  priceImpact: number | null
+  byAmountIn: boolean
+  quoteId?: string
+  status: "success" | "failure"
+  error?: string
+}
+
 // ============ 交易执行相关 ============
 
 export interface ExecutorConfig {

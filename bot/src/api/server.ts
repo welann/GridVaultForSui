@@ -14,7 +14,7 @@ import http from "http"
 import type { Storage } from "../storage/storage.js"
 import type { GridStrategy } from "../strategy/grid.js"
 import type { ConfigManager } from "../config/config.js"
-import type { BotStatus, TradeRecord, GridConfig } from "../types/index.js"
+import type { BotStatus, GridConfig } from "../types/index.js"
 
 export interface ApiServerConfig {
   port: number
@@ -99,6 +99,8 @@ export class ApiServer {
         await this.handleGetStatus(res)
       } else if (path === "/history" && method === "GET") {
         await this.handleGetHistory(url, res)
+      } else if (path === "/quotes" && method === "GET") {
+        await this.handleGetQuotes(url, res)
       } else if (path === "/config" && method === "GET") {
         await this.handleGetConfig(res)
       } else if (path === "/config" && method === "POST") {
@@ -138,6 +140,22 @@ export class ApiServer {
     
     const trades = await this.deps.storage.getTrades({ limit, offset })
     this.sendJson(res, 200, { trades })
+  }
+
+  /**
+   * GET /quotes
+   */
+  private async handleGetQuotes(
+    url: URL,
+    res: http.ServerResponse
+  ): Promise<void> {
+    const limit = parseInt(url.searchParams.get("limit") ?? "200", 10)
+    const offset = parseInt(url.searchParams.get("offset") ?? "0", 10)
+    const sideParam = url.searchParams.get("side") ?? undefined
+    const side = sideParam === "A2B" || sideParam === "B2A" ? sideParam : undefined
+
+    const quotes = await this.deps.storage.getQuotes({ limit, offset, side })
+    this.sendJson(res, 200, { quotes })
   }
   
   /**
@@ -237,6 +255,7 @@ export class ApiServer {
       endpoints: [
         { method: "GET", path: "/status", description: "Get bot status" },
         { method: "GET", path: "/history", description: "Get trade history" },
+        { method: "GET", path: "/quotes", description: "Get quote history" },
         { method: "GET", path: "/config", description: "Get grid config" },
         { method: "POST", path: "/config", description: "Update grid config" },
         { method: "POST", path: "/control", description: "Control bot (start/stop/pause/resume)" },
