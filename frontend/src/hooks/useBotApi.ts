@@ -41,6 +41,14 @@ export interface TradeRecord {
   error?: string
 }
 
+export interface LogEntry {
+  id: number
+  timestamp: number
+  level: "INFO" | "WARN" | "ERROR"
+  message: string
+  metadata?: string
+}
+
 export function useBotApi() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -128,6 +136,18 @@ export function useBotApi() {
     }
   }, [])
 
+  const fetchLogs = useCallback(async (limit: number = 50): Promise<LogEntry[]> => {
+    try {
+      const res = await fetch(`${BOT_API_URL}/logs?limit=${limit}`)
+      if (!res.ok) throw new Error("Failed to fetch logs")
+      const data = await res.json()
+      return data.logs || []
+    } catch (e) {
+      console.error("fetchLogs error:", e)
+      return []
+    }
+  }, [])
+
   return {
     loading,
     error,
@@ -136,5 +156,6 @@ export function useBotApi() {
     fetchConfig,
     updateConfig,
     controlBot,
+    fetchLogs,
   }
 }

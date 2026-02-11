@@ -5,6 +5,7 @@ import { dAppKit } from '@/lib/dapp-kit';
 import { VaultManager } from './VaultManager';
 import { BotControl } from './BotControl';
 import { TradeHistory } from './TradeHistory';
+import { LogPanel } from './LogPanel';
 
 export default function WalletApp() {
 	return (
@@ -36,6 +37,7 @@ export default function WalletApp() {
 						{/* 右侧：Bot 控制 */}
 						<div className="right-panel">
 							<BotControl />
+							<LogPanel />
 							<TradeHistory />
 						</div>
 					</div>
