@@ -37,7 +37,7 @@ const envSchema = z.object({
   
   // Bot 运行配置
   TICK_INTERVAL_MS: z.string().default("1000"),
-  API_PORT: z.string().default("3000"),
+  API_PORT: z.string().default("3215"),
   
   // 数据库配置
   DATABASE_PATH: z.string().default("./gridvault.db"),

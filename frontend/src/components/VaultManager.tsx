@@ -4,7 +4,7 @@ import { useCurrentAccount, useDAppKit } from "@mysten/dapp-kit-react"
 import { Transaction } from "@mysten/sui/transactions"
 import { SuiClient } from "@mysten/sui/client"
 import { useState, useCallback, useMemo, useEffect } from "react"
-import { PACKAGE_ID, COIN_TYPE_SUI, COIN_TYPE_USDC, NETWORK, RPC_URL } from "@/lib/constants"
+import { PACKAGE_ID, COIN_TYPE_SUI, COIN_TYPE_USDC, RPC_URL } from "@/lib/constants"
 import { shortenAddress, formatAmount } from "@/lib/utils"
 
 interface VaultManagerProps {
@@ -21,7 +21,7 @@ export function VaultManager({ onVaultCreated }: VaultManagerProps) {
   const suiClient = useMemo(() => {
     return new SuiClient({ 
       url: RPC_URL,
-      network: NETWORK as "mainnet" | "testnet" | "localnet",
+      network: "mainnet",
     })
   }, [])
   
