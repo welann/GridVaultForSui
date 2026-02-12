@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useCallback } from "react"
-import { BOT_API_URL } from "@/lib/constants"
+import { getBotApiUrl } from "@/lib/botApiUrl"
 
 export interface BotStatus {
   running: boolean
@@ -74,7 +74,7 @@ export function useBotApi() {
 
   const fetchStatus = useCallback(async (): Promise<BotStatus | null> => {
     try {
-      const res = await fetch(`${BOT_API_URL}/status`, {
+      const res = await fetch(`${getBotApiUrl()}/status`, {
         // Add timeout to avoid long waiting
         signal: AbortSignal.timeout(5000),
       })
@@ -89,7 +89,7 @@ export function useBotApi() {
 
   const fetchPrice = useCallback(async (): Promise<{ price: number | null; timestamp: number | null } | null> => {
     try {
-      const res = await fetch(`${BOT_API_URL}/price`)
+      const res = await fetch(`${getBotApiUrl()}/price`)
       if (!res.ok) throw new Error("Failed to fetch price")
       return await res.json()
     } catch (e) {
@@ -100,7 +100,7 @@ export function useBotApi() {
 
   const fetchHistory = useCallback(async (limit: number = 100): Promise<TradeRecord[]> => {
     try {
-      const res = await fetch(`${BOT_API_URL}/history?limit=${limit}`)
+      const res = await fetch(`${getBotApiUrl()}/history?limit=${limit}`)
       if (!res.ok) throw new Error("Failed to fetch history")
       const data = await res.json()
       return data.trades || []
@@ -112,7 +112,7 @@ export function useBotApi() {
 
   const fetchQuotes = useCallback(async (limit: number = 200): Promise<QuoteRecord[]> => {
     try {
-      const res = await fetch(`${BOT_API_URL}/quotes?limit=${limit}`)
+      const res = await fetch(`${getBotApiUrl()}/quotes?limit=${limit}`)
       if (!res.ok) throw new Error("Failed to fetch quotes")
       const data = await res.json()
       return data.quotes || []
@@ -124,7 +124,7 @@ export function useBotApi() {
 
   const fetchConfig = useCallback(async (): Promise<GridConfig | null> => {
     try {
-      const res = await fetch(`${BOT_API_URL}/config`)
+      const res = await fetch(`${getBotApiUrl()}/config`)
       if (!res.ok) throw new Error("Failed to fetch config")
       const data = await res.json()
       return data.config
@@ -138,7 +138,7 @@ export function useBotApi() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch(`${BOT_API_URL}/config`, {
+      const res = await fetch(`${getBotApiUrl()}/config`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(config),
@@ -160,7 +160,7 @@ export function useBotApi() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch(`${BOT_API_URL}/control`, {
+      const res = await fetch(`${getBotApiUrl()}/control`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ command }),
@@ -180,7 +180,7 @@ export function useBotApi() {
 
   const fetchLogs = useCallback(async (limit: number = 50): Promise<LogEntry[]> => {
     try {
-      const res = await fetch(`${BOT_API_URL}/logs?limit=${limit}`)
+      const res = await fetch(`${getBotApiUrl()}/logs?limit=${limit}`)
       if (!res.ok) throw new Error("Failed to fetch logs")
       const data = await res.json()
       return data.logs || []

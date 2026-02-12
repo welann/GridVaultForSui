@@ -7,6 +7,7 @@ import { BotControl } from './BotControl';
 import { TradeHistory } from './TradeHistory';
 import { LogPanel } from './LogPanel';
 import { GridStatus } from './GridStatus';
+import { BotApiConfig } from './BotApiConfig';
 
 export default function WalletApp() {
 	return (
@@ -90,6 +91,7 @@ export default function WalletApp() {
 
 						{/* Right: Bot Control */}
 						<div className="right-panel">
+							<BotApiConfig />
 							<BotControl />
 							<LogPanel />
 							<TradeHistory />
