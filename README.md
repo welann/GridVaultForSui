@@ -5,6 +5,15 @@
 
 A grid trading bot PoC on the Sui blockchain. GridVault automates buy-low-sell-high strategies by placing orders at predefined price intervals within a range.
 
+🚀 **[Live Demo](https://gridvault.vercel.app/)** - Try the GridVault interface on Vercel
+
+![Control page](./resources/control.png)
+
+
+[![视频预览](./resources/howitworks.gif)](./resources/howitworks.mp4)
+
+
+
 ## Overview
 
 GridVault consists of three main components working together:
@@ -30,10 +39,7 @@ GridVault consists of three main components working together:
 │    └─────────┘  └─────────┘  └─────────┘  └─────────┘          │
 └─────────────────────────────────────────────────────────────────┘
 ```
-![Control page](./resources/control.png)
-<video src="./resources/howitworks.mov" width="600" controls>
-  您的浏览器不支持视频标签。
-</video>
+
 
 ## How It Works
 
