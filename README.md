@@ -5,6 +5,8 @@
 
 A grid trading bot PoC on the Sui blockchain. GridVault automates buy-low-sell-high strategies by placing orders at predefined price intervals within a range.
 
+> **Note on Trading Pairs**: The smart contracts are generic and theoretically support **any two token pairs** (e.g., ETH/USDC, BTC/USDT, etc.). The demo website hardcodes SUI/USDC for simplicity, but you can use any token pair by directly interacting with the Move contracts.
+
 🚀 **[Live Demo](https://gridvault.vercel.app/)** - Try the GridVault interface on Vercel
 
 ![Control page](./resources/control.png)
@@ -182,6 +184,18 @@ npm run dev          # Start bot in development mode
 The bot API will be available at `http://localhost:3215`.
 
 ### 3. Configure & Start Frontend
+
+#### Option A: Use the Live Demo (Quickest)
+
+If you don't want to run the frontend locally, you can use our deployed demo:
+
+1. Open [https://gridvault.vercel.app/](https://gridvault.vercel.app/)
+2. In the **Bot API** card at the top-right, enter your local bot URL: `http://localhost:3215`
+3. Click **Apply** to connect
+
+That's it! The web UI will communicate with your locally running bot.
+
+#### Option B: Run Frontend Locally
 
 ```bash
 cd frontend
