@@ -70,7 +70,10 @@ export function LogPanel() {
 
         <div className="logs-container">
           {logs.length === 0 ? (
-            <div className="empty">No logs yet</div>
+            <div className="empty">
+              <div className="empty-icon">📝</div>
+              <p>No logs yet</p>
+            </div>
           ) : (
             <div className="logs-list">
               {logs.map((log) => {
@@ -155,6 +158,9 @@ export function LogPanel() {
           font-size: 20px;
           font-weight: 600;
           color: #e5e7eb;
+          display: flex;
+          align-items: center;
+          gap: 8px;
         }
         .btn {
           padding: 8px 16px;
@@ -182,8 +188,16 @@ export function LogPanel() {
         }
         .empty {
           text-align: center;
-          padding: 40px;
+          padding: 48px 24px;
           color: #6b7280;
+        }
+        .empty-icon {
+          font-size: 40px;
+          margin-bottom: 12px;
+          opacity: 0.6;
+        }
+        .empty p {
+          font-size: 14px;
         }
         .logs-list {
           padding: 8px;

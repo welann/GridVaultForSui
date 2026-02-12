@@ -94,13 +94,15 @@ export function GridStatus() {
 
         <div className="row">
           <span className="label">Current Band</span>
-          <span className="value">{status?.gridState.lastBand ?? "Not Initialized"}</span>
+          <span className={`value band ${status?.gridState.lastBand !== null && status?.gridState.lastBand !== undefined ? 'active' : ''}`}>
+            {status?.gridState.lastBand ?? "Not Initialized"}
+          </span>
         </div>
 
         <div className="row">
           <span className="label">In Flight</span>
-          <span className={`value ${status?.gridState.inFlight ? "warn" : "ok"}`}>
-            {status?.gridState.inFlight ? "Yes" : "No"}
+          <span className={`value ${status?.gridState.inFlight ? "in-flight" : "ok"}`}>
+            {status?.gridState.inFlight ? "🔄 In Progress" : "✓ Ready"}
           </span>
         </div>
 
@@ -112,10 +114,10 @@ export function GridStatus() {
         </div>
 
         {priceError && (
-          <div className="hint">{priceError}, please check Bot or network</div>
+          <div className="hint error">⚠️ {priceError}, please check Bot or network</div>
         )}
         {!status && (
-          <div className="hint">Bot not running or connection failed</div>
+          <div className="hint warning">⚠️ Bot not running or connection failed</div>
         )}
       </div>
 
@@ -137,6 +139,9 @@ export function GridStatus() {
           font-weight: 600;
           margin-bottom: 16px;
           color: #e5e7eb;
+          display: flex;
+          align-items: center;
+          gap: 8px;
         }
         .row {
           display: flex;
@@ -157,20 +162,42 @@ export function GridStatus() {
           font-weight: 600;
           color: #e5e7eb;
         }
-        .value.warn {
+        .value.band {
+          background: rgba(99, 102, 241, 0.15);
+          padding: 4px 10px;
+          border-radius: 6px;
+          font-size: 13px;
+        }
+        .value.band.active {
+          background: rgba(99, 102, 241, 0.25);
+          color: #818cf8;
+        }
+        .value.in-flight {
           color: #fbbf24;
+          font-size: 12px;
         }
         .value.ok {
           color: #4ade80;
+          font-size: 12px;
         }
         .hint {
           margin-top: 12px;
           font-size: 12px;
+          padding: 10px 14px;
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .hint.warning {
           color: #fbbf24;
           background: rgba(251, 191, 36, 0.1);
           border: 1px solid rgba(251, 191, 36, 0.2);
-          padding: 8px 12px;
-          border-radius: 8px;
+        }
+        .hint.error {
+          color: #f87171;
+          background: rgba(239, 68, 68, 0.1);
+          border: 1px solid rgba(239, 68, 68, 0.2);
         }
       `}</style>
     </div>

@@ -150,7 +150,7 @@ export function VaultManager({ onVaultCreated }: VaultManagerProps) {
 
   const depositAsset = async () => {
     if (!account || !vaultId || !depositAmount || !ownerCapId) {
-      alert("Please fill in Vault ID, OwnerCap ID and deposit amount")
+      alert("Please enter Vault ID, OwnerCap ID and deposit amount")
       return
     }
 
@@ -232,7 +232,7 @@ export function VaultManager({ onVaultCreated }: VaultManagerProps) {
 
   const withdrawAsset = async () => {
     if (!account || !vaultId || !depositAmount || !ownerCapId) {
-      alert("Please fill in Vault ID, OwnerCap ID and withdrawal amount")
+      alert("Please enter Vault ID, OwnerCap ID and withdrawal amount")
       return
     }
 
@@ -288,7 +288,7 @@ export function VaultManager({ onVaultCreated }: VaultManagerProps) {
 
   const setPaused = async (paused: boolean) => {
     if (!account || !vaultId || !ownerCapId) {
-      alert("Please fill in Vault ID and OwnerCap ID")
+      alert("Please enter Vault ID and OwnerCap ID")
       return
     }
 
@@ -321,8 +321,9 @@ export function VaultManager({ onVaultCreated }: VaultManagerProps) {
 
   if (!account) {
     return (
-      <div className="card">
-        <p>Please connect wallet first</p>
+      <div className="card connect-prompt">
+        <div className="connect-icon">🔌</div>
+        <p>Please connect your wallet to continue</p>
       </div>
     )
   }
@@ -333,7 +334,7 @@ export function VaultManager({ onVaultCreated }: VaultManagerProps) {
         <h2>🏦 Vault Manager</h2>
         
         <div className="section">
-          <h3>Create Vault</h3>
+          <h3>🏦 Create Vault</h3>
           <button 
             onClick={createVault} 
             disabled={creating || !PACKAGE_ID}
@@ -344,18 +345,17 @@ export function VaultManager({ onVaultCreated }: VaultManagerProps) {
           <button 
             onClick={fetchUserVaults}
             className="btn btn-secondary"
-            style={{ marginLeft: 12 }}
           >
-            Refresh List
+            🔄 Refresh
           </button>
           {!PACKAGE_ID && (
-            <p className="hint">Please configure PACKAGE_ID in environment variables first</p>
+            <p className="hint warn">⚠️ Please configure PACKAGE_ID in environment variables first</p>
           )}
         </div>
 
         {userVaults.length > 0 && (
           <div className="section">
-            <h3>My Vaults</h3>
+            <h3>📂 My Vaults</h3>
             {userVaults.map((vault) => (
               <div key={vault.id} className="vault-item">
                 <p>ID: {shortenAddress(vault.id)}</p>
@@ -367,7 +367,7 @@ export function VaultManager({ onVaultCreated }: VaultManagerProps) {
         )}
 
         <div className="section">
-          <h3>Fund Operations</h3>
+          <h3>💰 Fund Operations</h3>
           <div className="toggle-row">
             <button
               onClick={() => setSelectedAsset("SUI")}
@@ -414,7 +414,7 @@ export function VaultManager({ onVaultCreated }: VaultManagerProps) {
         </div>
 
         <div className="section">
-          <h3>Pause Control</h3>
+          <h3>⏸️ Pause Control</h3>
           <div className="button-row">
             <button onClick={() => setPaused(true)} className="btn btn-danger">
               Pause Trading
@@ -439,15 +439,35 @@ export function VaultManager({ onVaultCreated }: VaultManagerProps) {
           backdrop-filter: blur(10px);
           color: #e5e7eb;
         }
-        h2 {
+        .connect-prompt {
+          text-align: center;
+          padding: 40px 24px;
+        }
+        .connect-icon {
+          font-size: 48px;
           margin-bottom: 16px;
+          opacity: 0.8;
+        }
+        .connect-prompt p {
+          color: #9ca3af;
+          font-size: 15px;
+        }
+        h2 {
+          margin-bottom: 20px;
           font-size: 20px;
+          font-weight: 600;
           color: #e5e7eb;
+          display: flex;
+          align-items: center;
+          gap: 8px;
         }
         h3 {
-          margin: 16px 0 8px;
-          font-size: 16px;
-          color: #9ca3af;
+          margin: 0 0 12px 0;
+          font-size: 14px;
+          font-weight: 600;
+          color: #818cf8;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
         }
         .section {
           margin-bottom: 20px;
@@ -460,23 +480,36 @@ export function VaultManager({ onVaultCreated }: VaultManagerProps) {
           padding-bottom: 0;
         }
         .vault-item {
-          padding: 12px;
+          padding: 14px;
           background: rgba(17, 17, 24, 0.6);
           border: 1px solid rgba(99, 102, 241, 0.1);
-          border-radius: 8px;
-          margin-bottom: 8px;
+          border-radius: 10px;
+          margin-bottom: 10px;
           font-size: 13px;
+          transition: all 0.2s;
+        }
+        .vault-item:hover {
+          border-color: rgba(99, 102, 241, 0.25);
+          background: rgba(17, 17, 24, 0.8);
         }
         .vault-item p {
-          margin: 4px 0;
+          margin: 6px 0;
+          display: flex;
+          justify-content: space-between;
+        }
+        .vault-item p:first-child {
+          color: #6b7280;
+          font-size: 11px;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
         }
         .input {
           width: 100%;
-          padding: 10px 12px;
+          padding: 12px 14px;
           margin-bottom: 12px;
           background: rgba(17, 17, 24, 0.8);
           border: 1px solid rgba(99, 102, 241, 0.2);
-          border-radius: 8px;
+          border-radius: 10px;
           font-size: 14px;
           color: #e5e7eb;
           transition: all 0.2s;
@@ -500,20 +533,26 @@ export function VaultManager({ onVaultCreated }: VaultManagerProps) {
         }
         .btn {
           padding: 10px 20px;
-          border-radius: 8px;
+          border-radius: 10px;
           font-size: 14px;
           font-weight: 500;
-          transition: opacity 0.2s;
+          border: none;
+          cursor: pointer;
+          transition: all 0.2s;
         }
         .btn:hover:not(:disabled) {
           opacity: 0.9;
+          transform: translateY(-1px);
+        }
+        .btn:active:not(:disabled) {
+          transform: translateY(0);
         }
         .btn:disabled {
           opacity: 0.5;
           cursor: not-allowed;
         }
         .btn-primary {
-          background: #0070f3;
+          background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
           color: white;
         }
         .btn-secondary {
@@ -525,17 +564,26 @@ export function VaultManager({ onVaultCreated }: VaultManagerProps) {
           background: rgba(99, 102, 241, 0.2);
         }
         .btn-success {
-          background: #22c55e;
+          background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
           color: white;
         }
         .btn-danger {
-          background: #ef4444;
+          background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
           color: white;
         }
         .hint {
-          margin-top: 8px;
+          margin-top: 12px;
           font-size: 12px;
           color: #6b7280;
+          padding: 10px 14px;
+          background: rgba(17, 17, 24, 0.5);
+          border-radius: 8px;
+          border-left: 3px solid #6366f1;
+        }
+        .hint.warn {
+          border-left-color: #f59e0b;
+          background: rgba(251, 191, 36, 0.1);
+          color: #fbbf24;
         }
       `}</style>
     </div>

@@ -30,7 +30,10 @@ export function TradeHistory() {
         </div>
 
         {trades.length === 0 ? (
-          <div className="empty">No trade records yet</div>
+          <div className="empty">
+            <div className="empty-icon">📊</div>
+            <p>No trade records yet</p>
+          </div>
         ) : (
           <div className="table-container">
             <table>
@@ -92,6 +95,9 @@ export function TradeHistory() {
           font-size: 20px;
           font-weight: 600;
           color: #e5e7eb;
+          display: flex;
+          align-items: center;
+          gap: 8px;
         }
         .btn {
           padding: 8px 16px;
@@ -112,8 +118,16 @@ export function TradeHistory() {
         }
         .empty {
           text-align: center;
-          padding: 40px;
+          padding: 48px 24px;
           color: #6b7280;
+        }
+        .empty-icon {
+          font-size: 40px;
+          margin-bottom: 12px;
+          opacity: 0.6;
+        }
+        .empty p {
+          font-size: 14px;
         }
         .table-container {
           overflow-x: auto;

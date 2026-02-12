@@ -86,7 +86,7 @@ export function BotControl() {
         <div className="status-header">
           <h2>🤖 Bot Status</h2>
           <span className={`badge ${status?.running ? "running" : "stopped"}`}>
-            {status?.running ? "Running" : "Stopped"}
+            {status?.running ? "● Running" : "○ Stopped"}
           </span>
         </div>
 
@@ -106,11 +106,13 @@ export function BotControl() {
             </div>
             <div className="status-item">
               <label>Current Band</label>
-              <span>{status.gridState.lastBand ?? "Not Init"}</span>
+              <span className="band-value">{status.gridState.lastBand ?? "-"}</span>
             </div>
             <div className="status-item">
               <label>In Flight</label>
-              <span>{status.gridState.inFlight ? "Yes" : "No"}</span>
+              <span className={status.gridState.inFlight ? "in-flight" : "ready"}>
+                {status.gridState.inFlight ? "🔄 Yes" : "✓ No"}
+              </span>
             </div>
             <div className="status-item">
               <label>Last Tick</label>
@@ -275,6 +277,9 @@ export function BotControl() {
           font-size: 20px;
           font-weight: 600;
           color: #e5e7eb;
+          display: flex;
+          align-items: center;
+          gap: 8px;
         }
         .badge {
           padding: 6px 14px;
@@ -316,6 +321,21 @@ export function BotControl() {
           font-weight: 500;
           font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
           color: #e5e7eb;
+        }
+        .status-item .band-value {
+          background: rgba(99, 102, 241, 0.15);
+          padding: 4px 10px;
+          border-radius: 6px;
+          font-size: 13px;
+          color: #818cf8;
+        }
+        .status-item .in-flight {
+          color: #fbbf24;
+          font-size: 12px;
+        }
+        .status-item .ready {
+          color: #4ade80;
+          font-size: 12px;
         }
         .actions {
           display: flex;
