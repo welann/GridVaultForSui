@@ -4,12 +4,14 @@ import { useState, useEffect } from "react"
 import { useBotApi, type TradeRecord } from "@/hooks/useBotApi"
 import { formatAmount, formatTimestamp } from "@/lib/utils"
 
+const MAX_DISPLAY_COUNT = 100
+
 export function TradeHistory() {
   const api = useBotApi()
   const [trades, setTrades] = useState<TradeRecord[]>([])
 
   const loadHistory = async () => {
-    const data = await api.fetchHistory(50)
+    const data = await api.fetchHistory(MAX_DISPLAY_COUNT)
     setTrades(data)
   }
 
@@ -130,14 +132,35 @@ export function TradeHistory() {
           font-size: 14px;
         }
         .table-container {
-          overflow-x: auto;
+          overflow-y: auto;
+          max-height: 400px;
           border-radius: 8px;
           border: 1px solid rgba(99, 102, 241, 0.1);
+        }
+        /* Custom scrollbar */
+        .table-container::-webkit-scrollbar {
+          width: 8px;
+        }
+        .table-container::-webkit-scrollbar-track {
+          background: rgba(17, 17, 24, 0.6);
+          border-radius: 4px;
+        }
+        .table-container::-webkit-scrollbar-thumb {
+          background: rgba(99, 102, 241, 0.3);
+          border-radius: 4px;
+        }
+        .table-container::-webkit-scrollbar-thumb:hover {
+          background: rgba(99, 102, 241, 0.5);
         }
         table {
           width: 100%;
           border-collapse: collapse;
           font-size: 13px;
+        }
+        thead {
+          position: sticky;
+          top: 0;
+          z-index: 1;
         }
         th, td {
           padding: 12px;
@@ -150,7 +173,8 @@ export function TradeHistory() {
           font-size: 11px;
           text-transform: uppercase;
           letter-spacing: 0.5px;
-          background: rgba(17, 17, 24, 0.6);
+          background: rgba(23, 23, 30, 0.95);
+          backdrop-filter: blur(10px);
         }
         tr:hover {
           background: rgba(99, 102, 241, 0.05);
