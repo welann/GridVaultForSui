@@ -30,27 +30,30 @@ describe("grid strategy", () => {
     expect(r1.nextState.lastBand).toBe(2)
   })
 
-  test("decideGridAction returns SELL when price moves up (one step per call)", () => {
+  test("decideGridAction returns SELL when price moves up", () => {
     const config = { lowerPrice: 90, upperPrice: 110, levels: 4, amountPerGrid: 10, slippageBps: 50 }
 
     const state = { lastBand: 1, inFlight: false, lastTradeTime: null }
     const r = decideGridAction(config, state, 106)
 
     expect(r.action.type).toBe("SELL")
-    // We only advance one level per decision, so the first trigger is 100 (not 105).
+    expect(r.action.gridSteps).toBe(2)
+    // 触发价取首次被跨越的边界
     expect(r.action.triggerPrice).toBe(100)
-    expect(r.nextState.lastBand).toBe(2)
+    // 状态直接同步到当前档位，避免同一价格重复触发
+    expect(r.nextState.lastBand).toBe(3)
   })
 
-  test("decideGridAction returns BUY when price moves down one band", () => {
+  test("decideGridAction returns BUY when price moves down", () => {
     const config = { lowerPrice: 90, upperPrice: 110, levels: 4, amountPerGrid: 10, slippageBps: 50 }
 
     const state = { lastBand: 2, inFlight: false, lastTradeTime: null }
     const r = decideGridAction(config, state, 94)
 
     expect(r.action.type).toBe("BUY")
+    expect(r.action.gridSteps).toBe(2)
     expect(r.action.triggerPrice).toBe(100)
-    expect(r.nextState.lastBand).toBe(1)
+    expect(r.nextState.lastBand).toBe(0)
   })
 
   test("decideGridAction does nothing when inFlight", () => {
@@ -104,7 +107,8 @@ describe("GridStrategy class", () => {
     // Price moves up
     const r2 = strategy.decide(170)
     expect(r2.action.type).toBe("SELL")
-    expect(r2.nextState.lastBand).toBe(6)
+    expect(r2.action.gridSteps).toBe(2)
+    expect(r2.nextState.lastBand).toBe(7)
   })
 
   test("getGridLines returns correct number of lines", () => {

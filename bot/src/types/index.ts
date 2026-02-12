@@ -38,6 +38,8 @@ export interface GridAction {
   type: ActionType
   /** 触发价格（档位边界价格） */
   triggerPrice?: number
+  /** 本次跨越的网格层数（>=1） */
+  gridSteps?: number
   /** 输入金额 */
   amountIn?: bigint
   /** 期望最小输出 */

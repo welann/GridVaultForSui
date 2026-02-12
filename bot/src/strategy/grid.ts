@@ -5,7 +5,7 @@
  * 1. 将价格区间 [lowerPrice, upperPrice] 等分为 levels 个档位
  * 2. 价格从低档位跨越到高档位时卖出（SELL）
  * 3. 价格从高档位跨越到低档位时买入（BUY）
- * 4. 每次只移动一个档位，避免连续触发
+ * 4. 每次按跨越档位数触发一次，避免同一价格反复触发同方向订单
  */
 
 import type { GridConfig, GridState, GridDecision, GridAction, MarketSnapshot } from "../types/index.js"
@@ -63,7 +63,7 @@ export function computeBand(lines: number[], price: number): number {
  * - 首次运行：只记录档位，不交易
  * - 价格上升跨越档位：卖出（SELL）
  * - 价格下降跨越档位：买入（BUY）
- * - 每次只移动一个档位
+ * - 价格一次跨越多个档位时，按跨越层数合并为一笔交易
  * - 有 in-flight 交易时不做新决策
  */
 export function decideGridAction(
@@ -101,22 +101,24 @@ export function decideGridAction(
     }
   }
   
+  const bandDelta = currentBand - state.lastBand
+
   // 价格上升：卖出（A -> B）
   if (currentBand > state.lastBand) {
-    // 每次只移动一个档位
-    const targetBand = state.lastBand + 1
-    const triggerPrice = lines[targetBand]
+    const crossedSteps = bandDelta
+    const triggerPrice = lines[state.lastBand + 1]
     
     return {
       action: {
         type: "SELL",
         triggerPrice,
+        gridSteps: crossedSteps,
         // 具体金额在构造交易时计算
         amountIn: BigInt(Math.floor(config.amountPerGrid * 1e9)), // 暂时用占位值
       },
       nextState: {
         ...state,
-        lastBand: targetBand,
+        lastBand: currentBand,
         inFlight: true,
       },
     }
@@ -124,18 +126,19 @@ export function decideGridAction(
   
   // 价格下降：买入（B -> A）
   // currentBand < state.lastBand
-  const targetBand = state.lastBand - 1
-  const triggerPrice = lines[state.lastBand] // 买入以原档位价格触发
+  const crossedSteps = Math.abs(bandDelta)
+  const triggerPrice = lines[state.lastBand] // 买入以上一档位边界价格触发
   
   return {
     action: {
       type: "BUY",
       triggerPrice,
+      gridSteps: crossedSteps,
       amountIn: BigInt(Math.floor(config.amountPerGrid * 1e9)), // 暂时用占位值
     },
     nextState: {
       ...state,
-      lastBand: targetBand,
+      lastBand: currentBand,
       inFlight: true,
     },
   }

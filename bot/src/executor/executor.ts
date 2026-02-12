@@ -79,9 +79,25 @@ export class Executor {
           showEvents: true,
         },
       })
+      const immediateError = extractExecutionError(result.effects)
       
       // 等待交易确认
       const confirmed = await this.waitForConfirmation(result.digest)
+      let executionError = immediateError
+      if (!confirmed && !executionError) {
+        try {
+          const txDetails = await this.client.getTransactionBlock({
+            digest: result.digest,
+            options: { showEffects: true },
+          })
+          executionError = extractExecutionError(txDetails.effects)
+        } catch {
+          // 忽略错误，下面会提供兜底错误信息
+        }
+      }
+      if (!confirmed && !executionError) {
+        executionError = "Transaction failed or not confirmed within timeout"
+      }
       
       // 获取交易详情以提取实际输出金额
       let amountOut = params.quote.estimatedOut
@@ -110,6 +126,7 @@ export class Executor {
         events: result.events ?? [],
         timestamp: Date.now(),
         amountOut,
+        error: confirmed ? undefined : executionError,
       }
       
       return receipt
@@ -182,18 +199,6 @@ export class Executor {
         arguments: [vaultArg, traderCapArg, coinB],
       })
       
-      // 记录交易（可选，用于追踪）
-      tx.moveCall({
-        target: `${this.config.packageId}::grid_vault::trader_swap_a_to_b`,
-        typeArguments: [coinTypeA, coinTypeB],
-        arguments: [
-          vaultArg,
-          traderCapArg,
-          tx.pure.u64(Number(quote.amountIn)),
-          tx.pure.u64(Number(quote.minOut)),
-        ],
-      })
-      
     } else if (action.type === "BUY") {
       // ========== BUY: B -> A ==========
       
@@ -223,18 +228,6 @@ export class Executor {
         target: `${this.config.packageId}::grid_vault::trader_deposit_a`,
         typeArguments: [coinTypeA, coinTypeB],
         arguments: [vaultArg, traderCapArg, coinA],
-      })
-      
-      // 记录交易
-      tx.moveCall({
-        target: `${this.config.packageId}::grid_vault::trader_swap_b_to_a`,
-        typeArguments: [coinTypeA, coinTypeB],
-        arguments: [
-          vaultArg,
-          traderCapArg,
-          tx.pure.u64(Number(quote.amountIn)),
-          tx.pure.u64(Number(quote.minOut)),
-        ],
       })
       
     } else {
@@ -326,6 +319,22 @@ export class Executor {
 
 function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+function extractExecutionError(effects: unknown): string | undefined {
+  if (!effects || typeof effects !== "object") return undefined
+
+  const status = (effects as { status?: unknown }).status
+  if (!status || typeof status !== "object") return undefined
+
+  const parsedStatus = status as { status?: unknown; error?: unknown }
+  if (parsedStatus.status !== "failure") return undefined
+
+  if (typeof parsedStatus.error === "string" && parsedStatus.error.length > 0) {
+    return parsedStatus.error
+  }
+
+  return "On-chain execution failed"
 }
 
 /**

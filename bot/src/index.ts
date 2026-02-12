@@ -197,21 +197,47 @@ async function tick(): Promise<void> {
       return
     }
 
-    const amountIn = computeAmountInForAction(decision.action.type, config, price)
-    if (!amountIn || amountIn <= BigInt(0)) {
+    const gridSteps = Math.max(1, decision.action.gridSteps ?? 1)
+    const plannedAmountIn = computeAmountInForAction(decision.action.type, config, price)
+    if (!plannedAmountIn || plannedAmountIn <= BigInt(0)) {
       console.warn("[tick] Invalid amountIn computed, aborting trade")
       strategy.markTradeComplete(false)
       await logWarning("Amount calculation failed", {
         action: decision.action.type,
+        gridSteps,
         price,
         amountPerGrid: config.amountPerGrid,
       })
       return
     }
+
+    let amountIn = plannedAmountIn
+    if (executor) {
+      const balances = await executor.getVaultBalances()
+      ctx.vaultBalances = balances
+      const available = decision.action.type === "SELL" ? balances.a : balances.b
+
+      if (available <= BigInt(0)) {
+        console.warn("[tick] Insufficient vault balance, aborting trade")
+        strategy.markTradeComplete(false)
+        await logWarning("Insufficient vault balance", {
+          action: decision.action.type,
+          plannedAmountIn: plannedAmountIn.toString(),
+          available: available.toString(),
+        })
+        return
+      }
+
+      if (amountIn > available) {
+        console.warn(`[tick] amountIn exceeds vault balance, capping to available: ${available.toString()}`)
+        amountIn = available
+      }
+    }
+
     decision.action.amountIn = amountIn
     
     console.log(`[tick] Price: ${price.toFixed(6)}, Band: ${strategy.getCurrentBand(price)}`)
-    console.log(`[tick] Action: ${decision.action.type}, Trigger: ${decision.action.triggerPrice}`)
+    console.log(`[tick] Action: ${decision.action.type}, Trigger: ${decision.action.triggerPrice}, Steps: ${gridSteps}`)
     
     // 5. 获取报价
     let quote
